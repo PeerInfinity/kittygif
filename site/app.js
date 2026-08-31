@@ -43,7 +43,6 @@ async function start() {
     boot = JSON.parse(py.runPython("boot_info()"));
 
     say(`ready — kittygif ${boot.kittygif}, reading container v${boot.readable_versions.join(" and v")}. Drop a level above.`, "ok");
-    $("drop").classList.remove("hidden");
   } catch (err) {
     say("The converter could not start: " + err + "\nSee the repository for the command-line tool.", "bad");
     throw err;
