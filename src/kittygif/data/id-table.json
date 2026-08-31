@@ -2193,6 +2193,56 @@
    },
    "summary": "5 of 11 campaign levels carry mLevelMap; 6 do not"
   },
+  "read_layouts": {
+   "_doc": "WHICH CHILD IS WHICH, per savegame version.  World::Sync (CPP_WC:1234-1320) is version-INDEPENDENT: it always writes grid, robot, kitty, extra in that order.  The versions differ ONLY in the metadata chunk that precedes them and in whether an editor-tool chunk follows -- so a reader picks a layout by version and then shares one body parser.",
+   "1": {
+    "child_count": 6,
+    "name_child": 0,
+    "name_offset": 0,
+    "grid": 1,
+    "robot": 2,
+    "kitty": 3,
+    "extra": 4,
+    "editor": 5,
+    "grid_subchunks": 0,
+    "meta_chunk": "String mLevelname",
+    "written_by": "WorldEditor::LoadOldVersion reads it (CPP_WE:1040-1067, _WIN32 only) and World::LoadLevel(oldVersion=true) (CPP_WC:452-453); the 11 campaign files are this shape"
+   },
+   "16": {
+    "child_count": 5,
+    "name_child": 0,
+    "name_offset": 4,
+    "grid": 1,
+    "robot": 2,
+    "kitty": 3,
+    "extra": 4,
+    "editor": null,
+    "grid_subchunks": 1,
+    "meta_chunk": "int mUploadID, String mLevelname, longlong mTags, unsigned int mPaintID, bool mTestedOK, bool mTestedNoDying, char mFlagBits = 4 + (4+len) + 8 + 4 + 1 + 1 + 1 bytes",
+    "meta_field_types": "CPP_WE.h:62,64,65,66,67,96,119 -- mTags is a LONGLONG (8 B) and mFlagBits a CHAR (1 B), which is what makes the arithmetic close",
+    "written_by": "WorldEditor::Save at SAVEGAME_VERSION 0x0010 (CPP_WE:985-1006) -- what the Maker Mall editor on robotwantskitty.com/web writes to IndexedDB under /RAPTISOFT_SANDBOX/RWK/EXTRALEVELS64/<name>.kitty",
+    "grid_subchunk_is": "the radio-text list: int count, then count x (Point, String) (CPP_WC:1259-1269), nested INSIDE the grid chunk",
+    "measured": {
+     "file": "a 10x7 level authored in the official web editor 2026-08-31 and read back out of IndexedDB (S5)",
+     "bytes": 562,
+     "child_payloads": [
+      37,
+      358,
+      8,
+      8,
+      83
+     ],
+     "grid": [
+      10,
+      7
+     ],
+     "grid_has_level_map": true,
+     "grid_children": 1,
+     "radio_text_count": 0,
+     "note": "ONE sample.  The child ORDER and the meta field list are read from the source above; this file is the arithmetic check on them (37 B meta == the field list exactly), not their source."
+    }
+   }
+  },
   "children": [
    "0: {String mLevelname}",
    "1: grid {int w, int h, uint32 cells[w*h], [MAPTYPE mLevelMap[w*h]]}",

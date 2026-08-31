@@ -224,7 +224,33 @@ class IdTable:
 
     @property
     def file_version(self) -> int:
+        """The version this converter WRITES: the campaign/v1 container."""
         return int(self.container["campaign_version"])
+
+    @property
+    def read_layouts(self) -> Dict[int, dict]:
+        """Every container version this converter can READ, keyed by version int.
+
+        The layouts are DATA (``kitty_file.read_layouts``): which child chunk
+        holds the grid, where the level name starts inside the metadata chunk,
+        and whether the grid chunk carries the radio-text sub-chunk.  Adding a
+        version is a table edit, not a code edit.
+        """
+        return {
+            int(version): layout
+            for version, layout in self.container["read_layouts"].items()
+            if not version.startswith("_")
+        }
+
+    def read_layout(self, version: int) -> dict:
+        try:
+            return self.read_layouts[version]
+        except KeyError:
+            raise TableError(
+                "savegame version %d (0x%04x) has no layout in the table; it knows %s"
+                % (version, version,
+                   ", ".join("%d" % v for v in sorted(self.read_layouts)))
+            )
 
     @property
     def settings(self) -> dict:

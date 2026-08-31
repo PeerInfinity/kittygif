@@ -67,15 +67,24 @@ def test_grid_chunk_is_exactly_8_plus_wh4(tmp_path, table):
     assert data[-4:] == b"\0\0\0\0"          # the nested-savegame count
 
 
-def test_a_newer_savegame_version_is_refused_with_a_clear_message(tmp_path, table):
+def test_an_unknown_savegame_version_is_refused_naming_the_ones_we_read(tmp_path, table):
     level = fixtures.all_layouts_kitty(table)
     path = str(tmp_path / "newer.kitty")
     kittyio.write(level, path, table)
     data = bytearray(open(path, "rb").read())
-    data[0:4] = struct.pack("<i", 0x0010)
+    data[0:4] = struct.pack("<i", 0x0011)          # one past the current SAVEGAME_VERSION
     open(path, "wb").write(bytes(data))
-    with pytest.raises(UnsupportedVersionError, match="version 16"):
+    with pytest.raises(UnsupportedVersionError, match="version 17") as exc:
         kittyio.read(path, table)
+    # it must SAY what it can read, so the message is actionable
+    for known in table.read_layouts:
+        assert str(known) in str(exc.value)
+
+
+def test_the_readable_versions_are_data_not_code(table):
+    """Which containers this reader accepts is a table fact, and both are named."""
+    assert set(table.read_layouts) == {1, 16}
+    assert table.file_version == 1, "the WRITER stays on the campaign container"
 
 
 def _repack(tmp_path, table, main, name):
@@ -119,12 +128,12 @@ def test_a_grid_chunk_of_neither_length_is_refused(tmp_path, table):
     main, _ = kittyio._read_chunk(kittyio.to_bytes(level, table), 4)
     main.children[1].payload += b"\0" * 7           # neither shape
     path = _repack(tmp_path, table, main, "odd.kitty")
-    with pytest.raises(KittyFormatError, match=r"not a\s+v1 grid chunk"):
+    with pytest.raises(KittyFormatError, match=r"not a\s+grid chunk this reader knows"):
         kittyio.read(path, table)
 
 
 def test_a_grid_chunk_with_a_sub_chunk_is_refused(tmp_path, table):
-    """The radio-text sub-chunk belongs to the newer container, never to v1."""
+    """The radio-text sub-chunk belongs to the v16 container, never to v1."""
     level = fixtures.all_layouts_kitty(table)
     main, _ = kittyio._read_chunk(kittyio.to_bytes(level, table), 4)
     main.children[1].children.append(kittyio.Chunk(b"\0\0\0\0"))

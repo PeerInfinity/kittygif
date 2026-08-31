@@ -8,21 +8,34 @@ Container (``SaveGame.cpp``)::
 
     chunk := int32 payloadLen, payload[payloadLen], int32 childCount, child*
 
-The main chunk of a level carries no payload and six children, in ``World::Sync``
-order: name, grid, robot xy, kitty xy, extra game data, editor tool chunk.  A
-cell is a little-endian uint32 bitfield: ``layout:7 | paint:9 | customDraw:1 |
+The main chunk of a level carries no payload and a handful of children.  A cell
+is a little-endian uint32 bitfield: ``layout:7 | paint:9 | customDraw:1 |
 extraData:6 | paintID:9``.
+
+TWO container versions are readable, and which child is which comes from the
+table (``kitty_file.read_layouts``), not from this file:
+
+* **v1** -- six children: name, grid, robot xy, kitty xy, extra game data,
+  editor tool chunk.  The 11 campaign levels and this converter's own output.
+* **v16** (``SAVEGAME_VERSION 0x0010``) -- five children: a wider metadata chunk
+  (upload id, name, tags, paint id, two test flags, flag bits) in place of the
+  bare name, then the same four body chunks and no editor chunk.  This is what
+  the Maker Mall editor at ``robotwantskitty.com/web`` writes.
+
+``World::Sync`` -- the body -- is version-independent, so both versions share
+one parser below the metadata chunk.  The WRITER only ever emits v1: that is the
+shape proven against the engine oracle and the one RWIA-facing conversions need.
 
 The v1 grid child comes in **two measured shapes**: ``8 + w*h*4`` (the cells
 alone) or ``8 + w*h*4 + w*h`` (the cells plus the ``mLevelMap`` byte array).
 Six of the eleven campaign levels use the first, five the second, and the split
-lines up exactly with the extra chunk's 71/72-byte split.  Neither shape carries
-the radio-text sub-chunk the current engine writes.  The reader takes either and
-preserves what it found; the writer emits the shorter one, which is the pinned
-donor's.
+lines up exactly with the extra chunk's 71/72-byte split.  At v1 neither shape
+carries the radio-text sub-chunk; at v16 the grid chunk always does, and the
+table says so per version.  The reader takes either and preserves what it found;
+the writer emits the shorter one, which is the pinned donor's.
 
-Only file version 1 is in scope.  A newer savegame version is refused with a
-message that says so rather than mis-parsing.
+A version with no layout in the table is refused with a message naming the ones
+there are, rather than mis-parsing.
 
 Every id, field name, field type and default in here comes from the table.
 """
@@ -34,7 +47,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Tuple
 
 from .level import Level
-from .table import KITTY, IdTable
+from .table import KITTY, IdTable, TableError
 
 # --- the cell bitfield, widths straight from paint.packing -------------------
 _FIELDS = (("layout", 7), ("paint", 9), ("custom_draw", 1), ("extra_data", 6), ("paint_id", 9))
@@ -118,63 +131,79 @@ def _read_chunk(data: bytes, offset: int) -> Tuple[Chunk, int]:
 
 
 # --- level read / write ------------------------------------------------------
-_NAME, _GRID, _ROBOT, _KITTY, _EXTRA, _EDITOR = range(6)
 
 
 def read(path: str, table: Optional[IdTable] = None) -> Level:
     table = table or IdTable.load()
     with open(path, "rb") as fh:
         data = fh.read()
+    return from_bytes(data, table, where=path)
+
+
+def from_bytes(data: bytes, table: Optional[IdTable] = None,
+               where: str = "<bytes>") -> Level:
+    """Parse a ``.kitty`` already in memory.  ``read`` is this plus a file open."""
+    table = table or IdTable.load()
     if len(data) < 8:
-        raise KittyFormatError("%s is %d bytes -- not a .kitty" % (path, len(data)))
+        raise KittyFormatError("%s is %d bytes -- not a .kitty" % (where, len(data)))
 
     (version,) = struct.unpack_from("<i", data, 0)
-    if version != table.file_version:
+    try:
+        layout = table.read_layout(version)
+    except TableError as exc:
         raise UnsupportedVersionError(
-            "%s is savegame version %d (0x%04x); this converter reads version %d only -- "
-            "the v1 level container the campaign and the editor's v1 path write. "
-            "A newer file carries an mLevelMap array and a radio-text sub-chunk that v1 has not."
-            % (path, version, version, table.file_version)
+            "%s is savegame version %d (0x%04x), which this converter does not read. %s"
+            % (where, version, version, exc)
         )
-    main, offset = _read_chunk(data, 4)
-    expected_children = len(table.container["children"])
-    if len(main.children) < expected_children:
+    main, _ = _read_chunk(data, 4)
+    want = int(layout["child_count"])
+    if len(main.children) < want:
         raise KittyFormatError(
-            "%s has %d child chunks; a v1 level has %d (%s)"
-            % (path, len(main.children), expected_children,
-               ", ".join(table.container["children"])) )
+            "%s has %d child chunks; a version-%d level has %d"
+            % (where, len(main.children), version, want)
+        )
 
-    name, _ = _read_string(main.children[_NAME].payload, 0)
+    # Where the level name sits inside the metadata chunk: v1's metadata chunk IS
+    # the name, v16's puts a 4-byte mUploadID in front of it.
+    meta = main.children[int(layout["name_child"])].payload
+    name, _ = _read_string(meta, int(layout["name_offset"]))
 
-    grid = main.children[_GRID].payload
+    grid_chunk = main.children[int(layout["grid"])]
+    grid = grid_chunk.payload
     width, height = struct.unpack_from("<ii", grid, 0)
     if width <= 0 or height <= 0:
-        raise KittyFormatError("%s declares a %dx%d grid" % (path, width, height))
+        raise KittyFormatError("%s declares a %dx%d grid" % (where, width, height))
     cells_bytes = 8 + width * height * 4
-    # The v1 grid chunk comes in TWO measured shapes: the cells alone, or the
-    # cells plus a trailing mLevelMap byte array (one MAPTYPE per cell, the
-    # revealed-map state).  Both are file version 1 and both load.  Anything else
-    # is a container this reader does not know.
+    # The grid chunk comes in TWO measured shapes: the cells alone, or the cells
+    # plus a trailing mLevelMap byte array (one MAPTYPE per cell, the revealed-map
+    # state).  Both load.  Anything else is a container this reader does not know.
     with_map = cells_bytes + width * height
     if len(grid) not in (cells_bytes, with_map):
         raise KittyFormatError(
-            "%s: the grid chunk is %d bytes; a %dx%d v1 grid is %d (cells only) or "
+            "%s: the grid chunk is %d bytes; a %dx%d grid is %d (cells only) or "
             "%d (cells + the mLevelMap array).  Neither matches, so this is not a "
-            "v1 grid chunk."
-            % (path, len(grid), width, height, cells_bytes, with_map)
+            "grid chunk this reader knows."
+            % (where, len(grid), width, height, cells_bytes, with_map)
         )
-    if main.children[_GRID].children:
+    # The radio-text list is a sub-chunk of the grid chunk, and whether the version
+    # writes one is a table fact -- v1 never does, v16 always does.
+    allowed = int(layout["grid_subchunks"])
+    if len(grid_chunk.children) != allowed:
         raise KittyFormatError(
-            "%s: the grid chunk has %d sub-chunk(s); the v1 grid has none (the "
-            "radio-text sub-chunk belongs to the newer container)."
-            % (path, len(main.children[_GRID].children))
+            "%s: the grid chunk has %d sub-chunk(s); a version-%d grid has %d "
+            "(the radio-text sub-chunk)."
+            % (where, len(grid_chunk.children), version, allowed)
         )
     level_map = grid[cells_bytes:] or None
     cells = struct.unpack_from("<%dI" % (width * height), grid, 8)
 
     tile = float(table.tile_size_px)
-    rx, ry = struct.unpack_from("<ff", main.children[_ROBOT].payload, 0)
-    kx, ky = struct.unpack_from("<ff", main.children[_KITTY].payload, 0)
+    rx, ry = struct.unpack_from("<ff", main.children[int(layout["robot"])].payload, 0)
+    kx, ky = struct.unpack_from("<ff", main.children[int(layout["kitty"])].payload, 0)
+
+    editor_index = layout["editor"]
+    editor_chunk = (None if editor_index is None
+                    else main.children[int(editor_index)].payload)
 
     planes = [list(plane) for plane in zip(*(unpack_cell(c) for c in cells))]
     return Level(
@@ -190,8 +219,8 @@ def read(path: str, table: Optional[IdTable] = None) -> Level:
         extra_data=planes[3],
         paint_id=planes[4],
         level_map=level_map,
-        settings_chunk=main.children[_EXTRA].payload,
-        editor_chunk=main.children[_EDITOR].payload,
+        settings_chunk=main.children[int(layout["extra"])].payload,
+        editor_chunk=editor_chunk,
         file_version=version,
     )
 
@@ -261,6 +290,13 @@ def to_bytes(level: Level, table: Optional[IdTable] = None) -> bytes:
     robot = level.robot or (0.0, 0.0)
     kitty = level.kitty or (0.0, 0.0)
 
+    settings = level.settings_chunk
+    if settings is not None and level.file_version not in (None, table.file_version):
+        # A newer container's extra chunk is a WIDER field list (v16 adds coins,
+        # the conveyor speeds and the custom-song slots -- World::Sync grew), so it
+        # cannot be carried into a v1 file.  Fall back to the pinned donor block.
+        settings = None
+
     editor = level.editor_chunk
     if editor is None:
         # mPaintID is the editor's NEXT paint-region id: it must stay above every
@@ -274,8 +310,7 @@ def to_bytes(level: Level, table: Optional[IdTable] = None) -> bytes:
             Chunk(grid),
             Chunk(struct.pack("<ff", robot[0] * tile, robot[1] * tile)),
             Chunk(struct.pack("<ff", kitty[0] * tile, kitty[1] * tile)),
-            Chunk(level.settings_chunk if level.settings_chunk is not None
-                  else settings_chunk(table)),
+            Chunk(settings if settings is not None else settings_chunk(table)),
             Chunk(editor),
         ],
     )

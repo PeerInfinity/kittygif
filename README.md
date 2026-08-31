@@ -206,17 +206,26 @@ tiled into couples from the **bottom up**, and an odd cell at the top becomes a
 lone top half — which opens on its own, so no cell is ever left permanently
 shut. A run that was not two tall is named in the report.
 
-### The `.kitty` v1 container
+### The `.kitty` container (v1 and v16)
 
 ```
-int32 fileVersion                       # 1; a newer file is refused, not mis-parsed
+int32 fileVersion                       # 1 or 16; anything else is refused, not mis-parsed
 chunk                                   # the level
 int32 nestedSaveGameCount               # 0 in a level file
 
 chunk := int32 payloadLen, payload[payloadLen], int32 childCount, child*
 ```
 
-The level chunk carries no payload and six children, in order:
+Two versions are readable. **v1** is the campaign container and the one this
+converter writes. **v16** (`SAVEGAME_VERSION 0x0010`) is what the Maker Mall
+editor at [robotwantskitty.com/web](https://www.robotwantskitty.com/web/) saves —
+so a level authored in the official web editor converts here directly.
+
+The body — grid, robot, kitty, extra game data — is written by one
+version-independent routine, so the two versions differ only in the metadata
+chunk in front of it and in whether an editor-tool chunk follows.
+
+At **v1** the level chunk carries no payload and six children, in order:
 
 | # | child | payload |
 |---|---|---|
@@ -226,6 +235,19 @@ The level chunk carries no payload and six children, in order:
 | 3 | kitty | `float x, float y` |
 | 4 | extra game data | 71 bytes of typed fields (or 72 with a trailing bool) |
 | 5 | editor tool chunk | `int32 nextPaintRegionId`, optionally more |
+
+At **v16** there are five children: child 0 is a wider metadata chunk —
+`int32 uploadId, String name, int64 tags, uint32 paintId, bool testedOk, bool
+testedNoDying, char flagBits` — then the same children 1–4, and no editor chunk.
+Its grid chunk always carries the `levelMap` array *and* one sub-chunk (the
+radio-text list: `int32 count`, then that many `Point, String` pairs), neither of
+which a v1 file ever has. Its extra-game-data chunk is a longer field list than
+v1's, so it is not carried into a v1 file — a v16 level written back out as v1
+gets the pinned donor block.
+
+Which child is which, per version, is a row in the id table
+(`kitty_file.read_layouts`), not a branch in the reader: teaching this tool a
+third container version is a data edit.
 
 Primitives are little-endian; a `String` is an `int32` length **including its
 NUL** followed by the bytes.

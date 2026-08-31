@@ -126,8 +126,10 @@ def _cmd_info(args) -> int:
         for _x, _y, tile in level.cells():
             counts[tile] = counts.get(tile, 0) + 1
         namer = table.gif_name if level.space == GIF else table.kitty_name
-        print("%s  [%s]  %dx%d  name=%r" % (path, level.space, level.width, level.height,
-                                            level.name))
+        version = ("  container v%d" % level.file_version
+                   if level.file_version is not None else "")
+        print("%s  [%s]  %dx%d  name=%r%s" % (path, level.space, level.width,
+                                              level.height, level.name, version))
         if level.robot:
             print("   robot %.3f,%.3f t   kitty %s"
                   % (level.robot[0], level.robot[1],
