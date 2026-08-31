@@ -1,0 +1,24 @@
+# The whole suite runs on a bare checkout: every fixture is generated from the
+# id table, so there is nothing to download and nothing to install but Pillow.
+# The gates that need a game build (the oracle load, the completability replay)
+# live in scripts/local/ and cannot run here -- their verdicts travel in the
+# repository instead, and the suite checks that each sample carries one.
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      - name: no-originals guard
+        run: python3 tests/test_no_originals.py
+      - run: pytest -q
