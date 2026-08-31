@@ -64,3 +64,13 @@ def test_data_files_ship_with_the_package(table, palette):
     for path in (table.path, palette.path):
         with open(path, encoding="utf-8") as fh:
             json.load(fh)
+
+
+def test_the_level_file_names_come_from_the_census(table):
+    """The overwrite-slot list is DERIVED: the census keys are the shipped level set."""
+    files = table.gif_level_files
+    assert files == sorted(table.raw["censuses"]["gif_id_counts"])
+    assert files and all(f.endswith(".gif") for f in files)
+    # every named file really was censused, i.e. the list is not decoration
+    for name in files:
+        assert table.raw["censuses"]["gif_id_counts"][name]

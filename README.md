@@ -14,6 +14,10 @@ emits, and it always reports what it could not carry across.
 It is a bridge, not an editor. It exists so a level authored for one of these
 engines can be opened, inspected and played in the other.
 
+**▶ Try it in your browser: [peerinfinity.github.io/kittygif](https://peerinfinity.github.io/kittygif/)** — the
+demo runs this same package under Pyodide, so nothing is uploaded: drop a level
+in, read the report, download the converted file.
+
 > **This project's code was written by AI (Claude), directed and reviewed by
 > [PeerInfinity](https://github.com/PeerInfinity).** The file-format facts it
 > encodes were measured — from decompiled bytecode, from C++ sources, and from a
@@ -358,4 +362,27 @@ of the authors of either game, it is not named after either of them, and it
 redistributes nothing of theirs — no art, no audio, no level data, no source
 text beyond quoted identifiers and line references in the citations.
 
-A browser demo on GitHub Pages is planned.
+### Credits and links
+
+- **Robot Wants Kitty** and its web level editor — the source of the `.kitty`
+  container — are by **Raptisoft**: <https://www.robotwantskitty.com/>
+- **Robot Wants It All**, the compilation whose level files use the gif dialect,
+  is by **Hamumu Software**:
+  <https://store.steampowered.com/app/834760/Robot_Wants_It_All/>
+
+Those names appear here to say which formats this tool reads and writes, and to
+point at the games themselves. Nothing of theirs is redistributed.
+
+### The demo
+
+<https://peerinfinity.github.io/kittygif/> — built and published by `.github/workflows/pages.yml`. Build it locally
+with:
+
+```
+python scripts/build_site.py -o _site && python -m http.server -d _site
+```
+
+The page loads a wheel built from the same commit, so the demo cannot drift
+behind the code beside it. The no-originals guard runs a second time over the
+assembled site, because a site directory is another way a level file could
+reach the public.

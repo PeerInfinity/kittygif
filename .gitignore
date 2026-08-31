@@ -23,3 +23,6 @@ scratch/
 /*.report.json
 /*_tilemap.json
 /*_tiles.json
+
+# the assembled demo site (built by scripts/build_site.py, published by Actions)
+_site/

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kittygif — convert level files in your browser</title>
+<meta name="description" content="Convert between the .kitty level container and the indexed-GIF tile-map dialect, entirely in your browser. Nothing is uploaded.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header><div class="inner">
+  <h1><code>kittygif</code></h1>
+  <p class="tagline">
+    Convert a level between the <code>.kitty</code> container and the indexed-GIF
+    tile-map dialect — in your browser, with the real Python package running under
+    Pyodide. Same code as the command line, same id table, same report.
+  </p>
+</div></header>
+
+<main>
+
+<h2>Convert a level</h2>
+
+<div id="drop" tabindex="0" role="button" aria-label="Drop a level file here or click to choose one">
+  <p class="big"><b>Drop a <code>.gif</code> or <code>.kitty</code> here</b></p>
+  <p class="note">…or click to choose a file. The direction is detected from the file itself.</p>
+  <p class="privacy">🔒 Your file never leaves your browser. The conversion runs in this
+    page — there is no server to upload to.</p>
+  <input type="file" id="file" accept=".gif,.kitty" class="hidden">
+</div>
+
+<div id="status">loading the converter…</div>
+
+<div id="result" class="hidden">
+  <div class="card">
+    <h3 id="res-title">converted</h3>
+    <div class="stat" id="res-stat"></div>
+    <div class="canvas-wrap"><canvas id="canvas" class="level"></canvas></div>
+    <div class="legend" id="legend"></div>
+    <p class="note" id="legend-note"></p>
+  </div>
+
+  <div class="card">
+    <h3>The report</h3>
+    <p class="note">Every cell is accounted for in one of three classes. A conversion is
+      never refused for an unmappable tile — it is emitted, and said so here.</p>
+    <div id="risk"></div>
+    <table id="report-table"></table>
+  </div>
+
+  <div class="card" id="download-card">
+    <h3>Download</h3>
+    <div id="slot-picker"></div>
+    <p><button id="download" class="primary">Download</button>
+       <span class="note" id="download-name"></span></p>
+  </div>
+</div>
+
+<h2>Sample levels</h2>
+<p class="note">Four levels built by <code>samples/generate.py</code> in the repository, each
+  proven completable by replaying a solution tape in the engine and requiring its own win
+  flag. Drop one into the converter above to see it go the other way.</p>
+<div class="gallery" id="gallery"></div>
+
+<h2>Author a level in the official editor, play it in RWIA</h2>
+<p>The <a href="https://www.robotwantskitty.com/web/">web version of Robot Wants Kitty</a>
+  has a full level editor. Levels it makes can be converted here into the GIF dialect the
+  compilation reads, which means a level authored in the official editor can be played in
+  the compilation.</p>
+<div class="card">
+<p class="note"><b>Measured, not imagined.</b> Every step below was carried out once, in a
+  browser, on 2026-08-31, and only the steps that worked are written down. The level that
+  came out is <code>tests/data/webeditor-v16.kitty</code> in the repository, and the two
+  console snippets are the ones that ran, verbatim.</p>
+
+<h3>1 · Author the level</h3>
+<ol class="steps">
+  <li>Open <a href="https://www.robotwantskitty.com/web/">robotwantskitty.com/web</a> and
+    pick a control scheme when it asks.</li>
+  <li>From the title screen go to <b>MAKER MALL</b> → <b>MY LEVELS</b> →
+    <b>CREATE NEW LEVEL</b>, type a name, <b>OK</b>.
+    <div class="note">Signing in is only needed to <em>publish</em> a level. Creating and
+      saving one works while the bar still says “touch here to sign in”.</div></li>
+  <li>In the editor, open the <b>layout palette</b> (the blocks icon on the right rail),
+    choose a tile, and click cells to place it. The brush icon paints surfaces; the robot
+    and the kitty are already on the grid and can be dragged.</li>
+  <li><b>Leave the editor with “BACK TO LEVELS”.</b>
+    <div class="note">This is the step that writes the file. Reloading the page from inside
+      the editor loses the level — the storage key does not exist until you leave.</div></li>
+</ol>
+
+<h3>2 · Get the <code>.kitty</code> out of the browser</h3>
+<p>The web build keeps its files in the page's own IndexedDB, so the export is a snippet in
+  the developer console (F12 → Console; some browsers make you type <code>allow pasting</code>
+  once). First, list what is there:</p>
+<pre><code>indexedDB.open("/RAPTISOFT_SANDBOX", 21).onsuccess = (e) =&gt; {
+  e.target.result.transaction(["FILE_DATA"], "readonly")
+    .objectStore("FILE_DATA").getAllKeys().onsuccess = (ev) =&gt;
+      console.log(ev.target.result.filter(k =&gt; k.includes("EXTRALEVELS64")));
+};</code></pre>
+<p class="note">Your levels appear as
+  <code>/RAPTISOFT_SANDBOX/RWK/EXTRALEVELS64/&lt;name&gt;.kitty</code>.</p>
+<p>Then download one — put your level's name in the first line:</p>
+<pre><code>indexedDB.open("/RAPTISOFT_SANDBOX", 21).onsuccess = (e) =&gt; {
+  const name = "KITTYGIF DEMO";
+  const key = "/RAPTISOFT_SANDBOX/RWK/EXTRALEVELS64/" + name + ".kitty";
+  const store = e.target.result
+    .transaction(["FILE_DATA"], "readonly").objectStore("FILE_DATA");
+  store.get(key).onsuccess = (ev) =&gt; {
+    if (!ev.target.result) { console.log("no such level:", key); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([new Uint8Array(ev.target.result.contents)]));
+    a.download = name + ".kitty";
+    a.click();
+  };
+};</code></pre>
+<p class="note">The IndexedDB route was documented first by
+  <a href="https://github.com/MrMasterplan/rwklevelfiles">MrMasterplan's <code>rwklevelfiles</code></a>
+  (a Tiled extension for these files, GPLv3), whose console recipe reads a level out as
+  base64. The snippets above are the same idea, adjusted to hand you the file directly.</p>
+
+<h3>3 · Convert it</h3>
+<p>Drop the downloaded <code>.kitty</code> into the converter at the top of this page. The
+  editor writes container <b>version 16</b>; this tool reads it and produces the level gif.
+  Read the report: anything the gif dialect cannot express is listed there, and if the
+  solvability warning appears, a route may have changed.</p>
+
+<h3>4 · Put it in the game</h3>
+<ol class="steps">
+  <li>In the download step, <b>pick a slot</b>. The compilation loads a custom level only as
+    an overwrite of one of its own level files, under exactly that filename.</li>
+  <li>Find that file in the installed game — the RWK level gifs live under
+    <code>Images/RWK/</code> in the game folder.</li>
+  <li><b>Back the original up</b>, then replace it with your download. Verifying the game's
+    files through your store puts the original back if you lose it.</li>
+  <li>Start the game and choose that level.</li>
+</ol>
+<p class="note">Your level does not have to be the same size as the one it replaces — the
+  game reads each level file's own dimensions. (Measured: a 200×95 level loaded in a slot
+  whose original is 90×37.)</p>
+</div>
+
+<h2>Credits and links</h2>
+<div class="card">
+  <p><b>Robot Wants Kitty</b> and its web level editor are by <b>Raptisoft</b> (Rob Raptis) —
+    <a href="https://www.robotwantskitty.com/">robotwantskitty.com</a>.
+    The web build's Maker Mall editor is where the <code>.kitty</code> files come from.</p>
+  <p><b>Robot Wants It All</b>, the compilation whose level files use the GIF dialect, is by
+    <b>Hamumu Software</b> (Mike Hommel) —
+    <a href="https://store.steampowered.com/app/834760/Robot_Wants_It_All/">on Steam</a>.</p>
+  <p class="note">This is an unaffiliated fan tool. Those names are used only to say which
+    file formats it reads and writes. No game code, art, or level file is distributed here or
+    in the repository — the converter ships a table of measured facts and nothing else, and
+    files you drop above are read in your own browser.</p>
+  <p><b>kittygif</b> is MIT-licensed and lives at
+    <a href="https://github.com/PeerInfinity/kittygif">github.com/PeerInfinity/kittygif</a>.
+    Its code was written by AI (Claude), directed and reviewed by PeerInfinity.</p>
+</div>
+
+</main>
+
+<footer><div class="inner">
+  <span id="build-info"></span>
+</div></footer>
+
+<script src="config.js"></script>
+<script src="app.js" type="module"></script>
+</body>
+</html>

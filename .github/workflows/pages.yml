@@ -1,0 +1,56 @@
+# Builds the demo site and publishes it to GitHub Pages.
+#
+# The page runs the REAL package under Pyodide, so the wheel it loads is built
+# from this commit rather than pulled from an index -- the demo can never be a
+# release behind the code beside it.
+#
+# The no-originals guard runs a second time over the ASSEMBLED site, because the
+# site directory is a new place a level file could reach the public: the guard
+# walks whatever tree it is pointed at, and that property is why it can.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; let a running one finish rather than cancelling it
+# half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      - name: build the site
+        run: python3 scripts/build_site.py -o _site
+      - name: no-originals guard over the built site
+        run: python3 tests/test_no_originals.py _site
+      - name: the site is complete
+        run: python3 scripts/check_site.py _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

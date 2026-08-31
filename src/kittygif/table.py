@@ -253,6 +253,17 @@ class IdTable:
             )
 
     @property
+    def gif_level_files(self) -> List[str]:
+        """The level gif FILE NAMES of this dialect, from the table's own census.
+
+        The census was taken over the dialect's whole level set, so its keys are
+        exactly the files the game ships -- which is also the list of names a
+        replacement level may be given, since the game loads a custom level only
+        as an overwrite of one of them.  Derived, never typed out.
+        """
+        return sorted(self.raw["censuses"]["gif_id_counts"])
+
+    @property
     def settings(self) -> dict:
         return self.raw["settings_donor"]
 
