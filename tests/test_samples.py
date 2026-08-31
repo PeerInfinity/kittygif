@@ -50,6 +50,21 @@ def manifest():
         return {e["name"]: e for e in json.load(fh)["samples"]}
 
 
+def _pixels(path):
+    """Size plus every pixel of a PNG.
+
+    Pillow 12 deprecates ``Image.getdata()`` in favour of
+    ``get_flattened_data()``; the package supports both, so take whichever this
+    Pillow has -- the same choice ``gifio`` makes.
+    """
+    from PIL import Image
+
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        flatten = getattr(rgb, "get_flattened_data", None) or rgb.getdata
+        return image.size, list(flatten())
+
+
 def _paths(name):
     base = os.path.join(SAMPLES, name, name)
     return base + ".gif", base + ".kitty"
@@ -96,11 +111,8 @@ def test_the_generator_reproduces_the_committed_sample(name, tmp_path, table):
     b = gifio.read(os.path.join(SAMPLES, name, name + ".gif"))
     assert (a.width, a.height, a.tiles) == (b.width, b.height, b.tiles)
 
-    from PIL import Image
-    with Image.open(os.path.join(out, name + ".preview.png")) as fresh, \
-            Image.open(os.path.join(SAMPLES, name, name + ".preview.png")) as shipped:
-        assert fresh.size == shipped.size
-        assert list(fresh.convert("RGB").getdata()) == list(shipped.convert("RGB").getdata())
+    assert _pixels(os.path.join(out, name + ".preview.png")) == \
+        _pixels(os.path.join(SAMPLES, name, name + ".preview.png"))
 
 
 # -------------------------------------------------------------------------- L1
