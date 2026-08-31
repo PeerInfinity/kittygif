@@ -1,0 +1,198 @@
+{
+ "_doc": "Emit the tileMapAnalyzer's two JSON files from a :class:`Level`.",
+ "_generated_by": "kittygif emit-json",
+ "_id_space": "gif",
+ "_id_table": "id-table.json",
+ "_palette": "palette.json",
+ "_viewer_traits": "viewer-traits.json",
+ "game": "CORRIDOR",
+ "tile_size": 40,
+ "categories": {
+  "empty": {
+   "walkable": true,
+   "solid": false,
+   "color": "#000000",
+   "_doc": "gif ids 0: air",
+   "_color_from": "palette.json canonical_rgb[0]"
+  },
+  "decor": {
+   "walkable": true,
+   "solid": false,
+   "color": "#117481",
+   "_doc": "gif ids 1, 2: crystal shard (dark); crystal shard (bright)",
+   "_color_from": "palette.json canonical_rgb[1]"
+  },
+  "spawn": {
+   "walkable": true,
+   "solid": false,
+   "blocks_floor": true,
+   "color": "#f00005",
+   "_doc": "gif ids 3, 10, 14, 24, 69: enemy spawn: Walker (red alien); enemy spawn: Flier (blue octopus); enemy spawn: Boss (Slime); enemy spawn: Dripper (ceiling drip); enemy spawn: Shooter (RWIA)",
+   "_color_from": "palette.json canonical_rgb[3]"
+  },
+  "pickup": {
+   "walkable": true,
+   "solid": false,
+   "is_region": true,
+   "is_location": true,
+   "color": "#fadf00",
+   "_doc": "gif ids 4, 5, 7, 8, 9, 11, 12, 13, 15, 25: powerup: jump (SUPER JUMP JETS); powerup: shoot (DEADLY LAZORZ); powerup: double jump; powerup: rocket up (ROCKET RISER); powerup: dash (DASH ROCKET); powerup: red key (RED ACCESS CARD); powerup: green key (GREEN ACCESS CARD); powerup: blue key (BLUE ACCESS CARD); powerup: rapid fire (ANNIHILATOR); powerup: missile (MEGA MISSILE)",
+   "_color_from": "palette.json canonical_rgb[4]"
+  },
+  "hazard_source": {
+   "walkable": true,
+   "solid": false,
+   "lethal": true,
+   "color": "#800000",
+   "_doc": "gif ids 6: acid source (authored)",
+   "_color_from": "palette.json canonical_rgb[6]"
+  },
+  "collectible": {
+   "walkable": true,
+   "solid": false,
+   "is_region": true,
+   "is_location": true,
+   "color": "#fbdf23",
+   "_doc": "gif ids 16, 17, 18, 19, 20, 21, 22: SUPERSTAR collectible (RWIA); COMBO LETTER 1 (RWIA); COMBO LETTER 2 (RWIA); COMBO LETTER 3 (RWIA); COMBO LETTER 4 (RWIA); COMBO LETTER 5 (RWIA); TIME ORB collectible (RWIA)",
+   "_color_from": "palette.json canonical_rgb[16]"
+  },
+  "secret_air": {
+   "walkable": true,
+   "solid": false,
+   "color": "#404040",
+   "_doc": "gif ids 23: SECRET passage marker: walkable, never drawn, no enemy respawn (RWIA)",
+   "_color_from": "palette.json canonical_rgb[23]"
+  },
+  "background": {
+   "walkable": true,
+   "solid": false,
+   "color": "#927f69",
+   "_doc": "gif ids 26, 27, 28, 29: parallax background tile (generated, never authored); parallax background tile (generated, never authored); parallax background tile (generated, never authored); parallax background tile (generated, never authored)"
+  },
+  "checkpoint": {
+   "walkable": true,
+   "solid": false,
+   "is_region": true,
+   "color": "#8dff94",
+   "_doc": "gif ids 30, 31: checkpoint / SAVE STATION (inactive); checkpoint (active) -- runtime state only",
+   "_color_from": "palette.json canonical_rgb[30]"
+  },
+  "fluid": {
+   "walkable": true,
+   "solid": false,
+   "color": "#47e7e4",
+   "_doc": "gif ids 32: WATER (RWIA) -- animated, changes the robot's vertical motion",
+   "_color_from": "palette.json canonical_rgb[32]"
+  },
+  "solid_bulk": {
+   "walkable": false,
+   "solid": true,
+   "color": "#ffffff",
+   "_doc": "gif ids 50, 58, 63: rock / bulk solid A; yellow girder / bulk solid B; purple stone / bulk solid C",
+   "_color_from": "palette.json canonical_rgb[50]"
+  },
+  "solid_decor": {
+   "walkable": false,
+   "solid": true,
+   "color": "#9eda4e",
+   "_doc": "gif ids 51, 52, 53, 54, 59, 60, 61, 62, 64, 65, 67, 68: rock 2x2 decoration quadrant (generated at load, never authored); rock 2x2 decoration quadrant (generated at load, never authored); rock 2x2 decoration quadrant (generated at load, never authored); rock 2x2 decoration quadrant (generated at load, never authored); yellow girder interior variant (generated at load, never authored); yellow girder interior variant (generated at load, never authored); yellow girder interior variant (generated at load, never authored); yellow girder interior variant (generated at load, never authored); purple stone variant (generated at load, never authored); purple stone variant (generated at load, never authored); animated 'eyes' wall panel (RWIA); purple block variant (RWIA)",
+   "_color_from": "palette.json canonical_rgb[67]"
+  },
+  "door": {
+   "walkable": false,
+   "solid": true,
+   "color": "#db6d70",
+   "_doc": "gif ids 55, 56, 57: RED gate (opened by the red key; whole vertical run); GREEN gate (green key); BLUE gate (blue key)",
+   "_color_from": "palette.json canonical_rgb[55]"
+  },
+  "solid_breakable": {
+   "walkable": false,
+   "solid": true,
+   "color": "#e57375",
+   "_doc": "gif ids 66: RED BRICK -- destroyed by the missile",
+   "_color_from": "palette.json canonical_rgb[66]"
+  },
+  "entity_position_kitty_xy": {
+   "walkable": true,
+   "solid": false,
+   "is_region": true,
+   "is_location": true,
+   "color": "#00f40f",
+   "_doc": "gif ids 254: KITTY position (goal)",
+   "_color_from": "palette.json canonical_rgb[254]"
+  },
+  "entity_position_robot_xy": {
+   "walkable": true,
+   "solid": false,
+   "is_player_start": true,
+   "color": "#ff97ef",
+   "_doc": "gif ids 255: ROBOT start position",
+   "_color_from": "palette.json canonical_rgb[255]"
+  },
+  "unknown": {
+   "_doc": "an id no measurement in the table covers",
+   "color": "#a6606f",
+   "walkable": true,
+   "solid": false
+  }
+ },
+ "tile_ids": {
+  "0": "empty",
+  "1": "decor",
+  "2": "decor",
+  "3": "spawn",
+  "4": "pickup",
+  "5": "pickup",
+  "6": "hazard_source",
+  "7": "pickup",
+  "8": "pickup",
+  "9": "pickup",
+  "10": "spawn",
+  "11": "pickup",
+  "12": "pickup",
+  "13": "pickup",
+  "14": "spawn",
+  "15": "pickup",
+  "16": "collectible",
+  "17": "collectible",
+  "18": "collectible",
+  "19": "collectible",
+  "20": "collectible",
+  "21": "collectible",
+  "22": "collectible",
+  "23": "secret_air",
+  "24": "spawn",
+  "25": "pickup",
+  "26": "background",
+  "27": "background",
+  "28": "background",
+  "29": "background",
+  "30": "checkpoint",
+  "31": "checkpoint",
+  "32": "fluid",
+  "50": "solid_bulk",
+  "51": "solid_decor",
+  "52": "solid_decor",
+  "53": "solid_decor",
+  "54": "solid_decor",
+  "55": "door",
+  "56": "door",
+  "57": "door",
+  "58": "solid_bulk",
+  "59": "solid_decor",
+  "60": "solid_decor",
+  "61": "solid_decor",
+  "62": "solid_decor",
+  "63": "solid_bulk",
+  "64": "solid_decor",
+  "65": "solid_decor",
+  "66": "solid_breakable",
+  "67": "solid_decor",
+  "68": "solid_decor",
+  "69": "spawn",
+  "254": "entity_position_kitty_xy",
+  "255": "entity_position_robot_xy",
+  "_doc": "raw tile id -> category name, DERIVED from id-table.json's per-id 'kind' and 'solid'"
+ },
+ "default_category": "unknown"
+}

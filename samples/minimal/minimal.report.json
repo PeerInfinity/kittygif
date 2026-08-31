@@ -1,0 +1,360 @@
+{
+ "direction": "gif->kitty",
+ "source": "",
+ "target": "",
+ "id_table": "id-table.json",
+ "grid": {
+  "width": 12,
+  "height": 6
+ },
+ "cells": {
+  "total": 72,
+  "by_class": {
+   "a": 72,
+   "b": 0,
+   "c": 0
+  }
+ },
+ "solvability_at_risk": false,
+ "entries": [
+  {
+   "class": "a",
+   "class_label": "mappable",
+   "source_id": 0,
+   "source_name": "air",
+   "target_id": 0,
+   "target_name": "air / empty",
+   "count": 38,
+   "coords": [
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     7,
+     0
+    ],
+    [
+     8,
+     0
+    ],
+    [
+     9,
+     0
+    ],
+    [
+     10,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     7,
+     1
+    ],
+    [
+     8,
+     1
+    ],
+    [
+     9,
+     1
+    ],
+    [
+     10,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     7,
+     2
+    ],
+    [
+     8,
+     2
+    ],
+    [
+     9,
+     2
+    ],
+    [
+     10,
+     2
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     8,
+     3
+    ],
+    [
+     10,
+     3
+    ]
+   ],
+   "note": "empty <-> empty"
+  },
+  {
+   "class": "a",
+   "class_label": "mappable",
+   "source_id": 50,
+   "source_name": "rock / bulk solid A",
+   "target_id": 1,
+   "target_name": "solid block (the bulk terrain; painted)",
+   "count": 32,
+   "coords": [
+    [
+     0,
+     0
+    ],
+    [
+     11,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     11,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     11,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     11,
+     3
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     9,
+     4
+    ],
+    [
+     10,
+     4
+    ],
+    [
+     11,
+     4
+    ],
+    [
+     0,
+     5
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     7,
+     5
+    ],
+    [
+     8,
+     5
+    ],
+    [
+     9,
+     5
+    ],
+    [
+     10,
+     5
+    ],
+    [
+     11,
+     5
+    ]
+   ],
+   "note": "bulk solid <-> the painted solid block; the paint style is chosen by the gif->kitty default (see paint.default_style_bucket)"
+  },
+  {
+   "class": "a",
+   "class_label": "mappable",
+   "source_id": 254,
+   "source_name": "KITTY position (goal)",
+   "target_id": null,
+   "target_name": "kitty position (float x,y)",
+   "count": 1,
+   "coords": [
+    [
+     9,
+     3
+    ]
+   ],
+   "note": "kitty pixel <-> the kitty float xy FIELD (x40 px)"
+  },
+  {
+   "class": "a",
+   "class_label": "mappable",
+   "source_id": 255,
+   "source_name": "ROBOT start position",
+   "target_id": null,
+   "target_name": "robot spawn position (float x,y in world units; /40 = tiles)",
+   "count": 1,
+   "coords": [
+    [
+     2,
+     3
+    ]
+   ],
+   "note": "robot start pixel <-> the robot float xy FIELD (x40 px). USER RULING: not a grid cell on the C++ side"
+  }
+ ],
+ "notes": [
+  "paint: 32 cells painted as one region in the 'panels' style (the ruled default for this direction; a gif carries no paint information at all)"
+ ]
+}

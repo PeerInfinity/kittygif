@@ -1,0 +1,201 @@
+{
+ "_doc": "Emit the tileMapAnalyzer's two JSON files from a :class:`Level`.",
+ "_generated_by": "kittygif emit-json",
+ "_id_space": "kitty",
+ "_id_table": "id-table.json",
+ "_palette": "palette.json",
+ "_viewer_traits": "viewer-traits.json",
+ "game": "CORRIDOR-RWK",
+ "tile_size": 40,
+ "categories": {
+  "empty": {
+   "walkable": true,
+   "solid": false,
+   "color": "#000000",
+   "_doc": "kitty ids 0: air / empty",
+   "_color_from": "palette.json canonical_rgb[0]"
+  },
+  "solid_bulk": {
+   "walkable": false,
+   "solid": true,
+   "color": "#ffffff",
+   "_doc": "kitty ids 1: solid block (the bulk terrain; painted)",
+   "_color_from": "palette.json canonical_rgb[50]"
+  },
+  "hazard_open": {
+   "walkable": true,
+   "solid": false,
+   "lethal": true,
+   "color": "#800000",
+   "_doc": "kitty ids 2: lava / goo pool",
+   "_color_from": "palette.json canonical_rgb[6]"
+  },
+  "solid_breakable": {
+   "walkable": false,
+   "solid": true,
+   "color": "#e57375",
+   "_doc": "kitty ids 3, 29, 30: BREAK_BRICK (red brick; smashed by the HELMET); EXPLODE_BLOCK (explodes when touched); EXPLODE_CRATE",
+   "_color_from": "palette.json canonical_rgb[66]"
+  },
+  "pickup": {
+   "walkable": true,
+   "solid": false,
+   "is_region": true,
+   "is_location": true,
+   "color": "#fadf00",
+   "_doc": "kitty ids 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 25, 26, 27, 28, 42, 44, 45, 46, 50, 57, 65, 72: pickup: Pickup_Jump; pickup: Pickup_DoubleJump; pickup: Pickup_Shoot; pickup: Pickup_Rocket (dash); pickup: Pickup_RocketUp; pickup: Pickup_Annihiliate; pickup: Pickup_Helmet; pickup: Pickup_Redkey; pickup: Pickup_Greenkey; pickup: Pickup_Bluekey; pickup: Pickup_Explozor; pickup: Pickup_Haxxor; pickup: Pickup_Timesaver; pickup: Pickup_Teleport; pickup: Pickup_Life; pickup: Pickup_ShootCancel; pickup: Pickup_RocketUpCancel; pickup: Pickup_HelmetCancel; pickup: Pickup_Goldkey; Coin; pickup: Pickup_Velcro; pickup: Pickup_ShootUp",
+   "_color_from": "palette.json canonical_rgb[4]"
+  },
+  "door": {
+   "walkable": false,
+   "solid": true,
+   "color": "#db6d70",
+   "_doc": "kitty ids 14, 15, 16, 17, 18, 19, 32, 37, 49, 51, 52, 58: red door -- TOP half; red door -- BOTTOM half; green door -- TOP half; green door -- BOTTOM half; blue door -- TOP half; blue door -- BOTTOM half; COMPUTER_DOOR (opened by a Computer); BOSS_BLOCK (removed when the boss dies); VIRUS_DOOR; gold door -- TOP half; gold door -- BOTTOM half; BITCOIN_DOOR (opens on coin count)",
+   "_color_from": "palette.json canonical_rgb[55]"
+  },
+  "checkpoint": {
+   "walkable": true,
+   "solid": false,
+   "is_region": true,
+   "color": "#8dff94",
+   "_doc": "kitty ids 20: Computron (save station)",
+   "_color_from": "palette.json canonical_rgb[30]"
+  },
+  "spawn": {
+   "walkable": true,
+   "solid": false,
+   "blocks_floor": true,
+   "color": "#f00005",
+   "_doc": "kitty ids 21, 22, 23, 24, 31, 36, 41, 53, 56, 71: enemy: RedGuy; enemy: BlueGuy; enemy: Drip; enemy: Boss; Computer (terminal unit); enemy: RedBoss; enemy: DripBoss; enemy: Greenguy; enemy: Buzzoid; PHAGE_BLOCK (spawns a Phage)",
+   "_color_from": "palette.json canonical_rgb[3]"
+  },
+  "trigger": {
+   "walkable": true,
+   "solid": false,
+   "color": "#c0c4c0",
+   "_doc": "kitty ids 33, 34, 35: music trigger -> SwitchMusic(1); music trigger -> SwitchMusic(2); music trigger -> SwitchMusic(3)"
+  },
+  "mechanism_solid": {
+   "walkable": false,
+   "solid": true,
+   "color": "#716379",
+   "_doc": "kitty ids 38, 39, 40, 43, 47, 48, 59, 60, 61, 66: TELEMATIC_BLOCK (rotating platform, counter-clockwise); TELEMATIC_SLOT; TELEPAD_BLOCK; TELEMATIC_BLOCK2 (rotating platform, clockwise); ACID_BLOCK (melts blocks on contact); GUN_TARGET (shoot it to open a virus door); CONVEYOR_RIGHT; CONVEYOR_LEFT; ZOING_BLOCK (bouncer; mExtraData=1 marks the top); VELCRO_BLOCK (climbable; its own 47-blob autotile)"
+  },
+  "one_way": {
+   "walkable": true,
+   "solid": false,
+   "color": "#a6746d",
+   "_doc": "kitty ids 54, 55: one-way wall (pushes LEFT); one-way wall (pushes RIGHT)"
+  },
+  "mechanism_open": {
+   "walkable": true,
+   "solid": false,
+   "color": "#7ca7bf",
+   "_doc": "kitty ids 62, 64, 70, 73: LEVER_BLOCK (spawns a Lever); SLAM_BLOCK (non-blocking horizontally; passes IsBlockedY); RADIO_BLOCK (spawns a Radio message); MONSTERENERGY (non-blocking; spawns a MonsterEnergy)"
+  },
+  "decor": {
+   "walkable": true,
+   "solid": false,
+   "color": "#65dbdd",
+   "_doc": "kitty ids 63: COSMIC_BLOCK (non-blocking, rising particles)"
+  },
+  "secret_air": {
+   "walkable": true,
+   "solid": false,
+   "color": "#404040",
+   "_doc": "kitty ids 67: SECRET_BLOCK (walkable, unmapped, not blocking)",
+   "_color_from": "palette.json canonical_rgb[23]"
+  },
+  "hazard_solid": {
+   "walkable": false,
+   "solid": true,
+   "lethal": true,
+   "color": "#6a8a8f",
+   "_doc": "kitty ids 68, 69: SPIKE_BLOCK (floor spikes); SPIKE_CEILING_BLOCK"
+  },
+  "unknown": {
+   "_doc": "an id no measurement in the table covers",
+   "color": "#a6606f",
+   "walkable": true,
+   "solid": false
+  }
+ },
+ "tile_ids": {
+  "0": "empty",
+  "1": "solid_bulk",
+  "2": "hazard_open",
+  "3": "solid_breakable",
+  "4": "pickup",
+  "5": "pickup",
+  "6": "pickup",
+  "7": "pickup",
+  "8": "pickup",
+  "9": "pickup",
+  "10": "pickup",
+  "11": "pickup",
+  "12": "pickup",
+  "13": "pickup",
+  "14": "door",
+  "15": "door",
+  "16": "door",
+  "17": "door",
+  "18": "door",
+  "19": "door",
+  "20": "checkpoint",
+  "21": "spawn",
+  "22": "spawn",
+  "23": "spawn",
+  "24": "spawn",
+  "25": "pickup",
+  "26": "pickup",
+  "27": "pickup",
+  "28": "pickup",
+  "29": "solid_breakable",
+  "30": "solid_breakable",
+  "31": "spawn",
+  "32": "door",
+  "33": "trigger",
+  "34": "trigger",
+  "35": "trigger",
+  "36": "spawn",
+  "37": "door",
+  "38": "mechanism_solid",
+  "39": "mechanism_solid",
+  "40": "mechanism_solid",
+  "41": "spawn",
+  "42": "pickup",
+  "43": "mechanism_solid",
+  "44": "pickup",
+  "45": "pickup",
+  "46": "pickup",
+  "47": "mechanism_solid",
+  "48": "mechanism_solid",
+  "49": "door",
+  "50": "pickup",
+  "51": "door",
+  "52": "door",
+  "53": "spawn",
+  "54": "one_way",
+  "55": "one_way",
+  "56": "spawn",
+  "57": "pickup",
+  "58": "door",
+  "59": "mechanism_solid",
+  "60": "mechanism_solid",
+  "61": "mechanism_solid",
+  "62": "mechanism_open",
+  "63": "decor",
+  "64": "mechanism_open",
+  "65": "pickup",
+  "66": "mechanism_solid",
+  "67": "secret_air",
+  "68": "hazard_solid",
+  "69": "hazard_solid",
+  "70": "mechanism_open",
+  "71": "spawn",
+  "72": "pickup",
+  "73": "mechanism_open",
+  "_doc": "raw tile id -> category name, DERIVED from id-table.json's per-id 'kind' and 'solid'"
+ },
+ "default_category": "unknown"
+}
