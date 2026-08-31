@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kittygif"
+version = "0.1.0"
+description = "Level converter between an indexed-GIF tile-map dialect and the .kitty v1 level container"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["level-editor", "tilemap", "gif", "file-format", "converter", "modding"]
+dependencies = ["Pillow>=9.0"]
+
+[project.urls]
+Homepage = "https://github.com/PeerInfinity/kittygif"
+Source = "https://github.com/PeerInfinity/kittygif"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+kittygif = "kittygif.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+kittygif = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,36 @@
+{
+ "_doc": "The few tileMapAnalyzer category flags that no measurement in id-table.json gives, keyed on the table's own per-id 'kind' vocabulary. Everything else a category carries -- its name, its members, its 'solid' and its colour -- is DERIVED (see kittygif/viewer.py). Nineteen rows stand in for a hundred and thirty ids; that is the whole point of keying on the kind.",
+ "_consumers": {
+  "lethal": "tileCategorizer.deriveFloorFlags + reachabilityAnalyzer.isBlockingTile -- cannot be stood on, kills on contact",
+  "blocks_floor": "same two -- cannot be stood on, but a jump arc passes through (an enemy)",
+  "is_region": "reachabilityAnalyzer.findPointsOfInterest -- a place the rules graph names",
+  "is_location": "the same, and an Archipelago check sits here",
+  "is_player_start": "reachabilityAnalyzer.findPlayerStart"
+ },
+ "default_category": "unknown",
+ "kind_traits": {
+  "empty": {},
+  "background": {},
+  "decor": {},
+  "solid-bulk": {},
+  "solid-decor": {},
+  "solid-breakable": {},
+  "door": {},
+  "one-way": {},
+  "secret-air": {},
+  "trigger": {},
+  "mechanism": {},
+  "fluid": {},
+  "hazard": {"lethal": true},
+  "hazard-source": {"lethal": true},
+  "spawn": {"blocks_floor": true},
+  "checkpoint": {"is_region": true},
+  "pickup": {"is_region": true, "is_location": true},
+  "collectible": {"is_region": true, "is_location": true},
+  "entity-position": {}
+ },
+ "position_field_traits": {
+  "robot_xy": {"is_player_start": true},
+  "kitty_xy": {"is_region": true, "is_location": true}
+ }
+}

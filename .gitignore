@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# --- conversion OUTPUT ------------------------------------------------------
+# Nothing this converter WRITES belongs in this tree, and one class of output
+# must never be here at all: a converted original level.  The tool is ours; the
+# levels it was measured against are not (see the README's "What is not here",
+# and tests/test_no_originals.py, which fails on a byte-identical original).
+# Work outside the repo when you convert real files; these globs are the safety
+# net for when you forget.
+converted/
+out/
+output/
+scratch/
+/*.gif
+/*.kitty
+/*.report.json
+/*_tilemap.json
+/*_tiles.json
