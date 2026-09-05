@@ -1,6 +1,6 @@
 {
  "_doc": "Expected oracle results for samples/*, recorded by scripts/local/completability_gate.py --write.  The engine is not in this repository; these are the numbers a local run must reproduce.",
- "_oracle": "RWKAUD",
+ "_oracle": "kittyengine-00b56ef",
  "_seed": 1,
  "samples": {
   "corridor": {
