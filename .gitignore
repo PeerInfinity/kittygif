@@ -20,6 +20,7 @@ output/
 scratch/
 /*.gif
 /*.kitty
+/*.bin
 /*.report.json
 /*_tilemap.json
 /*_tiles.json

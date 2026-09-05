@@ -1,9 +1,20 @@
 """``kittygif`` -- the command line.
 
     kittygif gif2kitty LEVEL.gif OUT.kitty [--name NAME] [--paint-style panels]
+    kittygif raw2kitty MAP.bin OUT.kitty --width W --height H
     kittygif kitty2gif LEVEL.kitty OUT.gif
-    kittygif info FILE...
-    kittygif emit-json LEVEL.{gif,kitty} OUT_PREFIX
+    kittygif info FILE... [--width W --height H]
+    kittygif emit-json LEVEL.{gif,bin,kitty} OUT_PREFIX
+
+The SUBCOMMAND picks the CONTAINER a level is read from: an indexed gif's
+palette indices, one raw byte per cell, or the ``.kitty`` chunk tree.  All three
+are the same grid model underneath, and everything downstream of the read --
+the conversion, the report, the writer -- is shared.
+
+⚠ ``raw2kitty``'s ``--width``/``--height`` are REQUIRED and are a claim about
+the file, not a preference: a raw map states no dimensions of its own, so the
+reader multiplies them out and refuses a file that is not exactly that many
+bytes.  ``info`` wants the same two before it will read one.
 
 Every subcommand writes its report: the human summary on stderr, and the
 machine-readable JSON to ``--report PATH`` (or to stdout with ``--report -``).
@@ -27,7 +38,7 @@ import os
 import sys
 from typing import List, Optional
 
-from . import __version__, gifio, kittyio, viewer
+from . import __version__, gifio, kittyio, rawio, viewer
 from .convert import ConversionError, gif_to_kitty, kitty_to_gif
 from .report import Report
 from .table import GIF, IdTable, Palette, TableError
@@ -88,9 +99,16 @@ def _emit_report(report: Report, args) -> None:
                 fh.write(payload + "\n")
 
 
-def _cmd_gif2kitty(args) -> int:
+def _to_kitty(args, level) -> int:
+    """The shared tail of every ``* -> .kitty`` conversion.
+
+    Only the CONTAINER differs between ``gif2kitty`` and ``raw2kitty``: once the
+    cells are in a ``gif``-space :class:`~kittygif.level.Level` there is one
+    conversion, one report and one writer.  Keeping that in one place is what
+    makes "the container does not change the meaning" a property of the code
+    rather than a claim about it.
+    """
     table = _table(args)
-    level = gifio.read(args.source)
     name = args.name or os.path.splitext(os.path.basename(args.target))[0].upper()
     out, report = gif_to_kitty(
         level, table, name=name, paint_style=args.paint_style, paint=not args.no_paint
@@ -101,6 +119,14 @@ def _cmd_gif2kitty(args) -> int:
     if args.emit_json:
         _emit_viewer(out, table, args, args.emit_json, args.target)
     return 0
+
+
+def _cmd_gif2kitty(args) -> int:
+    return _to_kitty(args, gifio.read(args.source))
+
+
+def _cmd_raw2kitty(args) -> int:
+    return _to_kitty(args, rawio.read(args.source, args.width, args.height))
 
 
 def _cmd_kitty2gif(args) -> int:
@@ -118,10 +144,7 @@ def _cmd_kitty2gif(args) -> int:
 def _cmd_info(args) -> int:
     table = _table(args)
     for path in args.files:
-        if path.lower().endswith(".gif"):
-            level = gifio.read(path)
-        else:
-            level = kittyio.read(path, table)
+        level = _read_any(path, table, args)
         counts: dict = {}
         for _x, _y, tile in level.cells():
             counts[tile] = counts.get(tile, 0) + 1
@@ -147,16 +170,38 @@ def _cmd_info(args) -> int:
     return 0
 
 
-def _read_any(path: str, table: IdTable):
-    """Read a level from either side, the way ``info`` does."""
+#: the container a path names, by extension.  ``.bin`` is the raw map; ``.gif``
+#: the indexed gif; anything else is read as a ``.kitty``, which is what this
+#: tool did before the raw container existed.
+RAW_SUFFIX = ".bin"
+
+
+def _read_any(path: str, table: IdTable, args=None):
+    """Read a level from ANY of the three containers, by the path's extension.
+
+    The raw container is the one that cannot state its own shape, so it is the
+    one that needs an argument -- and refusing it here, by name, is better than
+    handing the bytes to the ``.kitty`` parser and reporting a savegame version
+    of 0 for a file that never claimed to be one.
+    """
     if path.lower().endswith(".gif"):
         return gifio.read(path)
+    if path.lower().endswith(RAW_SUFFIX):
+        width = getattr(args, "width", None)
+        height = getattr(args, "height", None)
+        if not width or not height:
+            raise ValueError(
+                "%s is a raw map: one byte per cell and no dimensions of its "
+                "own, so it cannot be read without --width and --height"
+                % os.path.basename(path)
+            )
+        return rawio.read(path, width, height)
     return kittyio.read(path, table)
 
 
 def _cmd_emit_json(args) -> int:
     table = _table(args)
-    level = _read_any(args.source, table)
+    level = _read_any(args.source, table, args)
     if args.name:
         level.name = args.name
     _emit_viewer(level, table, args, args.prefix, args.source)
@@ -165,7 +210,8 @@ def _cmd_emit_json(args) -> int:
 
 #: options that work on either side of the subcommand name
 _SHARED = {"id_table": None, "palette": None, "report": None, "quiet": False,
-           "viewer_traits": None, "emit_json": None}
+           "viewer_traits": None, "emit_json": None,
+           "width": None, "height": None, "paint_style": None, "no_paint": False}
 
 
 def _add_shared(parser: argparse.ArgumentParser) -> None:
@@ -182,6 +228,30 @@ def _add_shared(parser: argparse.ArgumentParser) -> None:
                         help="use another copy of viewer-traits.json")
 
 
+def _add_raw_dimensions(parser: argparse.ArgumentParser) -> None:
+    """The two dimensions a RAW input needs, optional on a subcommand that may
+    also be handed a ``.gif`` or a ``.kitty`` (both of which state their own)."""
+    parser.add_argument("--width", type=int, metavar="W", default=argparse.SUPPRESS,
+                        help="cells per row, for a raw .bin input only")
+    parser.add_argument("--height", type=int, metavar="H", default=argparse.SUPPRESS,
+                        help="rows, for a raw .bin input only")
+
+
+def _add_to_kitty(parser: argparse.ArgumentParser) -> None:
+    """The flags every ``* -> .kitty`` subcommand takes, whatever it reads."""
+    parser.add_argument("--name", help="level name written into the file "
+                                       "(default: the output file's stem, upper-cased)")
+    parser.add_argument("--paint-style", help="paint style for the bulk terrain "
+                                              "(default: the table's ruled default)")
+    parser.add_argument("--no-paint", action="store_true",
+                        help="leave the terrain unpainted (every cell draws its "
+                             "layout block)")
+    parser.add_argument("--emit-json", metavar="PREFIX", default=argparse.SUPPRESS,
+                        help="also write the tileMapAnalyzer pair for the CONVERTED "
+                             "level: PREFIX%s + PREFIX%s"
+                             % (TILEMAP_SUFFIX, CONFIG_SUFFIX))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kittygif", description=__doc__,
@@ -194,16 +264,24 @@ def build_parser() -> argparse.ArgumentParser:
     _add_shared(g2k)
     g2k.add_argument("source")
     g2k.add_argument("target")
-    g2k.add_argument("--name", help="level name written into the file "
-                                    "(default: the output file's stem, upper-cased)")
-    g2k.add_argument("--paint-style", help="paint style for the bulk terrain "
-                                           "(default: the table's ruled default)")
-    g2k.add_argument("--no-paint", action="store_true",
-                     help="leave the terrain unpainted (every cell draws its layout block)")
-    g2k.add_argument("--emit-json", metavar="PREFIX", default=argparse.SUPPRESS,
-                     help="also write the tileMapAnalyzer pair for the CONVERTED "
-                          "level: PREFIX%s + PREFIX%s" % (TILEMAP_SUFFIX, CONFIG_SUFFIX))
+    _add_to_kitty(g2k)
     g2k.set_defaults(func=_cmd_gif2kitty)
+
+    r2k = sub.add_parser(
+        "raw2kitty",
+        help="convert a raw map (one byte per cell, row-major) to a v1 .kitty")
+    _add_shared(r2k)
+    r2k.add_argument("source", help="the raw map bytes")
+    r2k.add_argument("target")
+    # ⚠ REQUIRED, and not a convenience: the file states no dimensions, so these
+    # two are a claim ABOUT it that rawio.read checks against the byte count.
+    r2k.add_argument("--width", type=int, required=True, metavar="W",
+                     help="cells per row (REQUIRED: a raw map carries no header, "
+                          "and W x H is checked against the file's byte count)")
+    r2k.add_argument("--height", type=int, required=True, metavar="H",
+                     help="rows (REQUIRED, same check)")
+    _add_to_kitty(r2k)
+    r2k.set_defaults(func=_cmd_raw2kitty)
 
     k2g = sub.add_parser("kitty2gif", help="convert a v1 .kitty to an RWIA level gif")
     _add_shared(k2g)
@@ -214,16 +292,19 @@ def build_parser() -> argparse.ArgumentParser:
                           "level: PREFIX%s + PREFIX%s" % (TILEMAP_SUFFIX, CONFIG_SUFFIX))
     k2g.set_defaults(func=_cmd_kitty2gif)
 
-    info = sub.add_parser("info", help="census a .gif or .kitty level through the table")
+    info = sub.add_parser(
+        "info", help="census a .gif, .bin or .kitty level through the table")
     _add_shared(info)
     info.add_argument("files", nargs="+")
+    _add_raw_dimensions(info)
     info.set_defaults(func=_cmd_info)
 
     ej = sub.add_parser("emit-json",
                         help="write the tileMapAnalyzer tilemap + category config "
                              "for a level, in the level's OWN id space")
     _add_shared(ej)
-    ej.add_argument("source", help="a .gif or a .kitty")
+    ej.add_argument("source", help="a .gif, a .bin or a .kitty")
+    _add_raw_dimensions(ej)
     ej.add_argument("prefix", help="output prefix; the two files get the panel's own "
                                    "suffixes %s and %s" % (TILEMAP_SUFFIX, CONFIG_SUFFIX))
     ej.add_argument("--name", help="the level name written into the tilemap")
