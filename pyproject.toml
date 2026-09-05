@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kittygif"
-version = "0.1.0"
+version = "0.2.0"
 description = "Level converter between an indexed-GIF tile-map dialect and the .kitty v1 level container"
 readme = "README.md"
 requires-python = ">=3.9"
