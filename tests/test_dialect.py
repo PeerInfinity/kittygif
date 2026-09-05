@@ -326,22 +326,31 @@ def test_the_gif_side_really_does_DIFFER_between_the_dialects(table, flash):
 
 
 # ---------------------------------------------------------------- the census
-def test_the_flash_table_has_no_gif_census_and_SAYS_SO(flash):
-    """Empty is a FACT here: the Flash build embeds one map, not a set of files.
+def test_the_flash_table_has_no_gif_FILE_census_and_says_where_its_census_IS(flash):
+    """An empty FILE census is a fact here; a missing census is not, any more.
 
-    ``gif_level_files`` derives the overwrite-slot list from the census keys.
-    There are no such slots for a game whose map lives inside the SWF, so the
-    list is empty -- and the table says why in prose a reader can check.
+    ``gif_level_files`` derives the overwrite-slot list from ``gif_id_counts``'
+    keys.  A game whose map lives inside the SWF has no such slots, so the list
+    is empty -- but its ids ARE censused, under the block keyed by the class
+    that carries the map.  Both halves have to be true at once, or the empty
+    list stops meaning "nothing to overwrite" and starts meaning "nobody
+    looked", and the table has to say which in prose a reader can check.
     """
     assert flash.raw["censuses"]["gif_id_counts"] == {}
     assert flash.gif_level_files == []
+    assert flash.gif_census_block == "embedded_map_id_counts"
+    assert flash.gif_census, "the flash dialect's ids are censused somewhere"
     note = flash.raw["censuses"]["_note"]
-    assert "one" in note.lower() and "file" in note.lower()
+    assert "embedded_map_id_counts" in note, \
+        "the note must name the block the census actually lives in"
+    assert "gif_id_counts" in note, \
+        "...and the block it does NOT live in, since that is the surprising half"
 
 
-def test_the_packaged_table_still_HAS_its_census(table):
+def test_the_packaged_table_still_HAS_its_FILE_census(table):
     """The other half of the arm above: neither dialect is skipped silently."""
     assert table.raw["censuses"]["gif_id_counts"]
+    assert table.gif_census_block == "gif_id_counts"
     assert table.gif_level_files and all(f.endswith(".gif") for f in table.gif_level_files)
 
 
