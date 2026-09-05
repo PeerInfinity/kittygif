@@ -1,8 +1,8 @@
 {
  "_schema": "rwk-id-table/1",
- "_dialect": "rwia",
- "_measured": "2026-08-30 (S1 measurement slice)",
- "_scope": "RWK dialect only. The .gif container format is RWIA-wide (RWB RWF RWI RWK RWL RWP), and each game has its OWN id space -- keep this table per-game.",
+ "_dialect": "flash",
+ "_measured": "2026-09-04 (Flash dialect slice; the .kitty side is the packaged table's, unchanged)",
+ "_scope": "The Flash build's authored map bytes ONLY. One unsigned byte per cell, row-major, 188 x 84 (FLASH_PS:41, :17); the game embeds exactly one map (FLASH_MAP) rather than shipping level FILES, so this table has no census and no level-file list. The .kitty end is the same one game as the RWIA table's and its blocks are byte-identical to it -- see censuses._note.",
  "_licence": "Derived FACTS with citations. Ships no Hamumu/Raptis bytes: no art, no level data, no source text beyond quoted identifiers and line references.",
  "sources": {
   "FLASH_PS": "~/CC/jpexs/output/robotkitty/scripts/xplor/PlayState.as (Flash RWK level loader)",
@@ -20,9 +20,9 @@
   "RWKLF": "~/CC/rwklevelfiles/rwk/tilesets/*.json (GPLv3; used ONLY for the ten style NAMES -- the name->bucket mapping below is re-derived from their stored paint values)"
  },
  "gif": {
-  "_id_space": "palette INDEX of a 1-pixel-per-tile indexed GIF; the palette is an authoring LEGEND (arbitrary distinct colours), not the tile appearance",
-  "solid_rule": "Flash: solid iff id >= 50 (FlxTilemap.collideIndex, FLASH_PS:179). RWIA: solid iff 50 <= id <= 254 (RWIA_BIN RWKLevel::TileIsSolid 0x261130); out of bounds counts as solid.",
-  "drawn_rule": "Flash: id >= 1 is drawn (drawIndex=1). RWIA: ids 0 and 23 are skipped (RWIA_BIN RWKLevel::Draw 0x267d4d).",
+  "_id_space": "one authored unsigned byte per cell of the Flash build's embedded map (FLASH_MAP), row-major -- the loader reads it with readUnsignedByte (FLASH_PS:170-176) and indexes it as i % mapWidth / i / mapWidth (FLASH_PS:194, :204, :271). Width and height are constants beside the loader (FLASH_PS:41 mapWidth=188, :17 mapHeight=84), NOT fields of the file: a reader has to be told them.",
+  "solid_rule": "Flash: solid iff id >= 50 (FlxTilemap.collideIndex, set at FLASH_PS:179; the comparisons are FLASH_TM:202, :348, :400). There is no upper bound, so the rule alone makes 254/255 solid -- but the loader clears both cells to 0 when it spawns the robot and the kitty (FLASH_PS:192-206), so no cell ever holds one at collision time.",
+  "drawn_rule": "Flash: id >= 1 is drawn (drawIndex = 1, FLASH_PS:180; the comparison is FLASH_TM:309). Id 0 is the only id the tilemap skips.",
   "ids": {
    "0": {
     "name": "air",
@@ -160,95 +160,84 @@
     ]
    },
    "16": {
-    "name": "SUPERSTAR collectible (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, submerged frame 16 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN RWKLevel::SuperstarTile() 0x268730 -> mov $0x10",
-     "RWIA_BIN IsCollectible 0x2610f2"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (submerged, cycle 16-19)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "17": {
-    "name": "COMBO LETTER 1 (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, submerged frame 17 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN FirstLetterTile()=0x11 / LastLetterTile()=0x15 (0x268750,0x268760)",
-     "RWIA_BIN LoadLevel 0x261736: zeroed unless MutatorList::IsMutatorActive(11)"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (submerged 16-19)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "18": {
-    "name": "COMBO LETTER 2 (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, submerged frame 18 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN FirstLetterTile()=0x11 / LastLetterTile()=0x15 (0x268750,0x268760)",
-     "RWIA_BIN LoadLevel 0x261736: zeroed unless MutatorList::IsMutatorActive(11)"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (submerged 16-19)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "19": {
-    "name": "COMBO LETTER 3 (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, submerged frame 19 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN FirstLetterTile()=0x11 / LastLetterTile()=0x15 (0x268750,0x268760)",
-     "RWIA_BIN LoadLevel 0x261736: zeroed unless MutatorList::IsMutatorActive(11)"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (submerged 16-19)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "20": {
-    "name": "COMBO LETTER 4 (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, surface frame 20 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN FirstLetterTile()=0x11 / LastLetterTile()=0x15 (0x268750,0x268760)",
-     "RWIA_BIN LoadLevel 0x261736: zeroed unless MutatorList::IsMutatorActive(11)"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (surface 20-23)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "21": {
-    "name": "COMBO LETTER 5 (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, surface frame 21 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN FirstLetterTile()=0x11 / LastLetterTile()=0x15 (0x268750,0x268760)",
-     "RWIA_BIN LoadLevel 0x261736: zeroed unless MutatorList::IsMutatorActive(11)"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (surface 20-23)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "22": {
-    "name": "TIME ORB collectible (RWIA)",
-    "kind": "collectible",
+    "name": "ACID, surface frame 22 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN RWKLevel::TimeOrbTile() 0x268740 -> mov $0x16",
-     "tile table entry -> atlas cell (14,5)"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (surface, cycle 20-23)",
-    "rwia_only": true,
-    "observed": "never occurs in any of the four RWK gifs"
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "23": {
-    "name": "SECRET passage marker: walkable, never drawn, no enemy respawn (RWIA)",
-    "kind": "secret-air",
+    "name": "ACID, surface frame 23 (LETHAL on contact)",
+    "kind": "hazard",
     "solid": false,
     "prov": [
-     "RWIA_BIN RWKLevel::Draw 0x267d4d: id 23 skipped exactly like id 0",
-     "RWIA_BIN ValidSpawnLocation 0x26107d: bitmask 0xc0800040 excludes {6,23,30,31}",
-     "RWIA_BIN TileIsSolid: 23 < 50 -> not solid",
-     "geometry: 1-wide shafts / hollow rings carved inside bulk rock in all 3 files that use it"
+     "FLASH_PL:377-380 (>= 16 && <= 23 -> Die())",
+     "FLASH_PS:219-231 (an authored 6 becomes 20 or 16)"
     ],
-    "flash_meaning": "acid animation frame (surface, cycle 20-23)",
-    "rwia_only": true
+    "refuse": "the Flash lethal range. Player.update probes the tile at (x+7, y+7) and calls Die() on any id in 16..23 (FLASH_PL:377-380). The loader WRITES 16 and 20 itself, from an authored acid source (id 6): 20 where the cell above is air, 16 otherwise (FLASH_PS:219-231). So an id in this range in a map FILE is either a generated value fed back in or a level from the other dialect -- where 16 is SUPERSTAR, 17..21 are the combo letters, 22 the time orb and 23 the secret passage, four kinds of bonus. Converting one of those as Flash would turn a bonus into a death trap, so it is refused by name rather than mapped."
    },
    "24": {
     "name": "enemy spawn: Dripper (ceiling drip)",
@@ -275,7 +264,7 @@
     "prov": [
      "FLASH_PS:147 backMap filled with 26 + x%2 + 2*(y%2)"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "27": {
     "name": "parallax background tile (generated, never authored)",
@@ -284,7 +273,7 @@
     "prov": [
      "FLASH_PS:147 backMap filled with 26 + x%2 + 2*(y%2)"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "28": {
     "name": "parallax background tile (generated, never authored)",
@@ -293,7 +282,7 @@
     "prov": [
      "FLASH_PS:147 backMap filled with 26 + x%2 + 2*(y%2)"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "29": {
     "name": "parallax background tile (generated, never authored)",
@@ -302,7 +291,7 @@
     "prov": [
      "FLASH_PS:147 backMap filled with 26 + x%2 + 2*(y%2)"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "30": {
     "name": "checkpoint / SAVE STATION (inactive)",
@@ -320,19 +309,16 @@
     "prov": [
      "FLASH_PL:445 map.setTile(...,31)"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "32": {
-    "name": "WATER (RWIA) -- animated, changes the robot's vertical motion",
-    "kind": "fluid",
+    "name": "unused, drawn, non-solid (blank in the Flash tilesheet)",
+    "kind": "decor",
     "solid": false,
     "prov": [
-     "RWIA_BIN tile table entry -> srcX=8*W, srcY=3*H = atlas cell 56 (8 water frames, 400 ms cycle)",
-     "RWIA_BIN RWKRobot::Update 0x2726da: tile 32 -> field 0xb0 = -(0x13c) * k (sign flipped)",
-     "RWIA_BIN TileIsSolid: 32 < 50 -> not solid"
-    ],
-    "flash_meaning": "unused (blank in the Flash tilesheet)",
-    "rwia_only": true
+     "FLASH_TM:202 collideIndex 50 -> 32 < 50, not solid",
+     "no reference to id 32 anywhere in the Flash sources"
+    ]
    },
    "50": {
     "name": "rock / bulk solid A",
@@ -351,7 +337,7 @@
     "prov": [
      "FLASH_PS:271-283"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "52": {
     "name": "rock 2x2 decoration quadrant (generated at load, never authored)",
@@ -360,7 +346,7 @@
     "prov": [
      "FLASH_PS:271-283"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "53": {
     "name": "rock 2x2 decoration quadrant (generated at load, never authored)",
@@ -369,7 +355,7 @@
     "prov": [
      "FLASH_PS:271-283"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "54": {
     "name": "rock 2x2 decoration quadrant (generated at load, never authored)",
@@ -378,7 +364,7 @@
     "prov": [
      "FLASH_PS:271-283"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "55": {
     "name": "RED gate (opened by the red key; whole vertical run)",
@@ -421,7 +407,7 @@
     "prov": [
      "FLASH_PS:236"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "60": {
     "name": "yellow girder interior variant (generated at load, never authored)",
@@ -430,7 +416,7 @@
     "prov": [
      "FLASH_PS:236"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "61": {
     "name": "yellow girder interior variant (generated at load, never authored)",
@@ -439,7 +425,7 @@
     "prov": [
      "FLASH_PS:236"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "62": {
     "name": "yellow girder interior variant (generated at load, never authored)",
@@ -448,7 +434,7 @@
     "prov": [
      "FLASH_PS:236"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "63": {
     "name": "purple stone / bulk solid C",
@@ -467,7 +453,7 @@
     "prov": [
      "FLASH_PS:242"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "65": {
     "name": "purple stone variant (generated at load, never authored)",
@@ -476,7 +462,7 @@
     "prov": [
      "FLASH_PS:242"
     ],
-    "observed": "never occurs in any of the four RWK gifs"
+    "observed": "generated by the loader / runtime, never authored -- see prov"
    },
    "66": {
     "name": "RED BRICK -- destroyed by the missile",
@@ -488,37 +474,31 @@
     ]
    },
    "67": {
-    "name": "animated 'eyes' wall panel (RWIA)",
+    "name": "unused SOLID block (blank in the Flash tilesheet)",
     "kind": "solid-decor",
     "solid": true,
     "prov": [
-     "RWIA_BIN tile table -> srcX=2*W, srcY=6*H = atlas cell 98 (2 frames, 200 ms)",
-     "RWIA_BIN Draw 0x2682d2",
-     "no gameplay reference anywhere in the RWK code"
-    ],
-    "flash_meaning": "unused (blank in the Flash tilesheet)",
-    "rwia_only": true
+     "FLASH_TM:202 collideIndex 50 -> 67 >= 50, SOLID",
+     "no reference to id 67 anywhere in the Flash sources"
+    ]
    },
    "68": {
-    "name": "purple block variant (RWIA)",
+    "name": "unused SOLID block (blank in the Flash tilesheet)",
     "kind": "solid-decor",
     "solid": true,
     "prov": [
-     "RWIA_BIN tile table -> srcX=2*W, srcY=7*H = atlas cell 114",
-     "no gameplay reference"
-    ],
-    "flash_meaning": "unused (blank in the Flash tilesheet)",
-    "rwia_only": true
+     "FLASH_TM:202 collideIndex 50 -> 68 >= 50, SOLID",
+     "no reference to id 68 anywhere in the Flash sources"
+    ]
    },
    "69": {
-    "name": "enemy spawn: Shooter (RWIA)",
-    "kind": "spawn",
-    "solid": false,
+    "name": "unused SOLID block (blank in the Flash tilesheet)",
+    "kind": "solid-decor",
+    "solid": true,
     "prov": [
-     "RWIA_BIN LoadLevel 0x261718 cmp $0x45 -> UnitFactory type 20 = Shooter"
-    ],
-    "flash_meaning": "unused (blank in the Flash tilesheet)",
-    "rwia_only": true
+     "FLASH_TM:202 collideIndex 50 -> 69 >= 50, SOLID",
+     "no reference to id 69 anywhere in the Flash sources"
+    ]
    },
    "254": {
     "name": "KITTY position (goal)",
@@ -1227,7 +1207,10 @@
    "cls": "a",
    "directions": "both",
    "note": "bulk solid <-> the painted solid block; the paint style is chosen by the gif->kitty default (see paint.default_style_bucket)",
-   "prov": []
+   "prov": [
+    "FLASH_PS:179 collideIndex=50",
+    "FLASH_PS:269-285 (2x2 runs become 51..54)"
+   ]
   },
   {
    "gif": 58,
@@ -1235,7 +1218,9 @@
    "cls": "b",
    "directions": "both",
    "note": "yellow girder is the same C++ solid block, distinguished only by paint; gif->kitty suggests the 'warn' style, kitty->gif always emits 50",
-   "prov": []
+   "prov": [
+    "FLASH_PS:232-239 (interior cells become 59..62)"
+   ]
   },
   {
    "gif": 63,
@@ -1243,7 +1228,9 @@
    "cls": "b",
    "directions": "both",
    "note": "purple stone: same, suggests 'mesh'",
-   "prov": []
+   "prov": [
+    "FLASH_PS:240-244 (randomised to 63..65 at load)"
+   ]
   },
   {
    "gif": 6,
@@ -1251,7 +1238,9 @@
    "cls": "a",
    "directions": "both",
    "note": "acid source <-> lava/goo pool",
-   "prov": []
+   "prov": [
+    "FLASH_PS:219-231 (an authored 6 becomes 20 or 16 and joins acidList)"
+   ]
   },
   {
    "gif": 66,
@@ -1260,8 +1249,7 @@
    "directions": "both",
    "note": "RED BRICK <-> BREAK_BRICK. Missile-breakable in Flash/RWIA, HELMET-breakable in C++ -- the standing user ruling; the tile is a direct entry either way",
    "prov": [
-    "FLASH_MI:47",
-    "CPP_WC:1470"
+    "FLASH_MI:47-49 (the missile clears a 66 to 0)"
    ]
   },
   {
@@ -1270,7 +1258,9 @@
    "cls": "a",
    "directions": "both",
    "note": "jump",
-   "prov": []
+   "prov": [
+    "FLASH_PL:363-369 POWER_JUMP"
+   ]
   },
   {
    "gif": 7,
@@ -1278,7 +1268,9 @@
    "cls": "a",
    "directions": "both",
    "note": "double jump",
-   "prov": []
+   "prov": [
+    "FLASH_PL:381-387 POWER_DOUBLEJUMP"
+   ]
   },
   {
    "gif": 5,
@@ -1286,7 +1278,9 @@
    "cls": "a",
    "directions": "both",
    "note": "shoot / lazor",
-   "prov": []
+   "prov": [
+    "FLASH_PL:370-376 POWER_SHOOT"
+   ]
   },
   {
    "gif": 9,
@@ -1294,7 +1288,9 @@
    "cls": "a",
    "directions": "both",
    "note": "DASH ROCKET <-> Pickup_Rocket (the horizontal dash)",
-   "prov": []
+   "prov": [
+    "FLASH_PL:395-401 POWER_DASH"
+   ]
   },
   {
    "gif": 8,
@@ -1302,7 +1298,9 @@
    "cls": "a",
    "directions": "both",
    "note": "ROCKET RISER <-> Pickup_RocketUp (hold down + special)",
-   "prov": []
+   "prov": [
+    "FLASH_PL:388-394 POWER_ROCKET"
+   ]
   },
   {
    "gif": 15,
@@ -1310,7 +1308,9 @@
    "cls": "a",
    "directions": "both",
    "note": "ANNIHILATOR (rapid fire) <-> Pickup_Annihiliate",
-   "prov": []
+   "prov": [
+    "FLASH_PL:423-429 POWER_RAPID"
+   ]
   },
   {
    "gif": 25,
@@ -1318,7 +1318,9 @@
    "cls": "a",
    "directions": "both",
    "note": "MEGA MISSILE <-> Pickup_Helmet. USER RULING 2026-08-30 (not the rockets); both are the red-brick opener on their side",
-   "prov": []
+   "prov": [
+    "FLASH_PL:430-436 POWER_MISSILE"
+   ]
   },
   {
    "gif": 11,
@@ -1326,7 +1328,9 @@
    "cls": "a",
    "directions": "both",
    "note": "red key / RED ACCESS CARD",
-   "prov": []
+   "prov": [
+    "FLASH_PL:402-408 POWER_REDKEY"
+   ]
   },
   {
    "gif": 12,
@@ -1334,7 +1338,9 @@
    "cls": "a",
    "directions": "both",
    "note": "green key",
-   "prov": []
+   "prov": [
+    "FLASH_PL:409-415 POWER_GRNKEY"
+   ]
   },
   {
    "gif": 13,
@@ -1342,7 +1348,9 @@
    "cls": "a",
    "directions": "both",
    "note": "blue key",
-   "prov": []
+   "prov": [
+    "FLASH_PL:416-422 POWER_BLUKEY"
+   ]
   },
   {
    "gif": 55,
@@ -1353,7 +1361,9 @@
    "cls": "a",
    "directions": "both",
    "note": "red gate. The gif gate is a vertical RUN of one id; the C++ door is exactly 2 cells, id N on top and N+1 below",
-   "prov": [],
+   "prov": [
+    "FLASH_PL:130-146 (the red key clears the WHOLE vertical run)"
+   ],
    "shape": "vpair"
   },
   {
@@ -1365,7 +1375,9 @@
    "cls": "a",
    "directions": "both",
    "note": "green gate (same 1-id-run vs 2-cell-pair shape difference)",
-   "prov": [],
+   "prov": [
+    "FLASH_PL:147-163"
+   ],
    "shape": "vpair"
   },
   {
@@ -1377,7 +1389,9 @@
    "cls": "a",
    "directions": "both",
    "note": "blue gate",
-   "prov": [],
+   "prov": [
+    "FLASH_PL:164-180"
+   ],
    "shape": "vpair"
   },
   {
@@ -1386,7 +1400,9 @@
    "cls": "a",
    "directions": "both",
    "note": "checkpoint / SAVE STATION <-> Computron",
-   "prov": []
+   "prov": [
+    "FLASH_PL:437-447 (sets the restart point and flips the tile to 31)"
+   ]
   },
   {
    "gif": 3,
@@ -1394,7 +1410,9 @@
    "cls": "a",
    "directions": "both",
    "note": "Walker (red alien) <-> RedGuy",
-   "prov": []
+   "prov": [
+    "FLASH_PS:245-250 new Alien()"
+   ]
   },
   {
    "gif": 10,
@@ -1402,7 +1420,9 @@
    "cls": "a",
    "directions": "both",
    "note": "Flier (blue octopus) <-> BlueGuy",
-   "prov": []
+   "prov": [
+    "FLASH_PS:251-256 new Alien2()"
+   ]
   },
   {
    "gif": 24,
@@ -1410,7 +1430,9 @@
    "cls": "a",
    "directions": "both",
    "note": "Dripper <-> Drip",
-   "prov": []
+   "prov": [
+    "FLASH_PS:257-262 new Drip()"
+   ]
   },
   {
    "gif": 14,
@@ -1418,15 +1440,20 @@
    "cls": "a",
    "directions": "both",
    "note": "Slime boss <-> Boss",
-   "prov": []
+   "prov": [
+    "FLASH_PS:263-268 new Boss()"
+   ]
   },
   {
-   "gif": 23,
+   "gif": 0,
    "kitty": 67,
-   "cls": "a",
-   "directions": "both",
-   "note": "RWIA SECRET passage air <-> C++ SECRET_BLOCK. Both are walkable, undrawn, excluded from the map/respawn logic -- an exact functional match",
-   "prov": []
+   "cls": "c",
+   "directions": "kitty->gif",
+   "note": "C++ SECRET_BLOCK has no Flash tile. Its RWIA counterpart is gif 23, which is inside the Flash lethal range (FLASH_PL:377-380) and is refused as an authored id -- so emitting it would write a death trap where the level meant walkable air. Substituted with gif 0 (air), which is what the block already behaves like, and REPORTED.",
+   "prov": [
+    "FLASH_PL:377-380",
+    "FLASH_PS:219-231"
+   ]
   },
   {
    "gif": 255,
@@ -1434,7 +1461,9 @@
    "cls": "a",
    "directions": "both",
    "note": "robot start pixel <-> the robot float xy FIELD (x40 px). USER RULING: not a grid cell on the C++ side",
-   "prov": []
+   "prov": [
+    "FLASH_PS:192-199 new Player(), cell cleared to 0"
+   ]
   },
   {
    "gif": 254,
@@ -1442,7 +1471,9 @@
    "cls": "a",
    "directions": "both",
    "note": "kitty pixel <-> the kitty float xy FIELD (x40 px)",
-   "prov": []
+   "prov": [
+    "FLASH_PS:200-206 new Kitty(), cell cleared to 0"
+   ]
   },
   {
    "gif": 1,
@@ -1450,7 +1481,9 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "crystal shard decoration: no C++ tile; dropped to air",
-   "prov": []
+   "prov": [
+    "tilesheet PlayState_TilesImage cell 1; drawn (>= drawIndex 1), 1 < 50 so not solid"
+   ]
   },
   {
    "gif": 2,
@@ -1458,53 +1491,31 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "crystal shard decoration: dropped to air",
-   "prov": []
-  },
-  {
-   "gif": 16,
-   "kitty": 0,
-   "cls": "b",
-   "directions": "gif->kitty",
-   "note": "RWIA SUPERSTAR: a bonus collectible, never a gate; dropped",
-   "prov": []
-  },
-  {
-   "gif": [
-    17,
-    18,
-    19,
-    20,
-    21
-   ],
-   "kitty": 0,
-   "cls": "b",
-   "directions": "gif->kitty",
-   "note": "RWIA COMBO LETTERS: mutator-gated bonus collectibles; dropped",
-   "prov": []
-  },
-  {
-   "gif": 22,
-   "kitty": 0,
-   "cls": "b",
-   "directions": "gif->kitty",
-   "note": "RWIA TIME ORB: bonus collectible (and never actually placed in an RWK map); dropped",
-   "prov": []
+   "prov": [
+    "tilesheet cell 2; drawn, not solid"
+   ]
   },
   {
    "gif": 67,
    "kitty": 1,
    "cls": "b",
    "directions": "gif->kitty",
-   "note": "RWIA animated 'eyes' wall: a solid decoration; becomes a plain painted block",
-   "prov": []
+   "note": "id 67 has no Flash behaviour and its tilesheet cell is blank, but 67 >= 50 so the tilemap collides with it (FLASH_TM:202). A solid block with no art: the painted solid.",
+   "prov": [
+    "FLASH_TM:202",
+    "FLASH_PS:179"
+   ]
   },
   {
    "gif": 68,
    "kitty": 1,
    "cls": "b",
    "directions": "gif->kitty",
-   "note": "RWIA purple block variant: solid decoration; becomes a plain painted block",
-   "prov": []
+   "note": "id 68 has no Flash behaviour and its tilesheet cell is blank, but 68 >= 50 so the tilemap collides with it (FLASH_TM:202). A solid block with no art: the painted solid.",
+   "prov": [
+    "FLASH_TM:202",
+    "FLASH_PS:179"
+   ]
   },
   {
    "gif": 31,
@@ -1512,7 +1523,9 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "checkpoint in its ACTIVE runtime state; authored maps never carry it",
-   "prov": []
+   "prov": [
+    "FLASH_PL:445 (map.setTile(...,31)) -- runtime state, never authored"
+   ]
   },
   {
    "gif": 26,
@@ -1520,7 +1533,9 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "Flash parallax background tile; generated at load, never authored",
-   "prov": []
+   "prov": [
+    "FLASH_PS:142-151 backMap filled with 26 + x%2 + 2*(y%2) -- a SEPARATE array, never the map file"
+   ]
   },
   {
    "gif": 27,
@@ -1528,7 +1543,9 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "Flash parallax background tile; generated at load, never authored",
-   "prov": []
+   "prov": [
+    "FLASH_PS:142-151 backMap filled with 26 + x%2 + 2*(y%2) -- a SEPARATE array, never the map file"
+   ]
   },
   {
    "gif": 28,
@@ -1536,7 +1553,9 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "Flash parallax background tile; generated at load, never authored",
-   "prov": []
+   "prov": [
+    "FLASH_PS:142-151 backMap filled with 26 + x%2 + 2*(y%2) -- a SEPARATE array, never the map file"
+   ]
   },
   {
    "gif": 29,
@@ -1544,7 +1563,9 @@
    "cls": "b",
    "directions": "gif->kitty",
    "note": "Flash parallax background tile; generated at load, never authored",
-   "prov": []
+   "prov": [
+    "FLASH_PS:142-151 backMap filled with 26 + x%2 + 2*(y%2) -- a SEPARATE array, never the map file"
+   ]
   },
   {
    "gif": 51,
@@ -1629,18 +1650,24 @@
   {
    "gif": 32,
    "kitty": 0,
-   "cls": "c",
+   "cls": "b",
    "directions": "gif->kitty",
-   "note": "RWIA WATER: no C++ equivalent and it CHANGES THE ROBOT'S VERTICAL MOTION. Substituted with AIR (permissive). A climb that depends on the water column becomes impossible -- must be reported per level with coordinates",
-   "prov": []
+   "note": "id 32 has no Flash behaviour -- the game never reads it and the tilesheet cell is blank -- and 32 < 50 so it is not solid (FLASH_TM:202). A drawn, non-solid, inert tile: dropped to air, cosmetic only. (In the RWIA dialect this id is WATER, which changes the robot's vertical motion and is class (c) there.)",
+   "prov": [
+    "FLASH_TM:202",
+    "FLASH_PS:179"
+   ]
   },
   {
    "gif": 69,
-   "kitty": 0,
-   "cls": "c",
+   "kitty": 1,
+   "cls": "b",
    "directions": "gif->kitty",
-   "note": "RWIA Shooter enemy: no C++ Shooter. Substituted with AIR (removing an enemy can never make a level unsolvable)",
-   "prov": []
+   "note": "id 69 has no Flash behaviour and its tilesheet cell is blank, but 69 >= 50, so the Flash tilemap COLLIDES with it (FLASH_TM:202, collideIndex set at FLASH_PS:179). It is a solid block with no art: carried across as the painted solid, appearance only. (In the RWIA dialect this id is the Shooter enemy, class (c) there.)",
+   "prov": [
+    "FLASH_TM:202",
+    "FLASH_PS:179"
+   ]
   },
   {
    "gif": 0,
@@ -2330,150 +2357,7 @@
   "runtime_only_fields": "customDraw and extraData are 0 in ALL 11 campaign levels -- they are computed at load (CPP_WC:2790-2806), so a writer must emit 0."
  },
  "censuses": {
-  "gif_id_counts": {
-   "classic.gif": {
-    "0": 4327,
-    "1": 10,
-    "2": 14,
-    "3": 71,
-    "4": 1,
-    "5": 1,
-    "6": 234,
-    "7": 1,
-    "8": 1,
-    "9": 1,
-    "10": 124,
-    "11": 1,
-    "12": 1,
-    "13": 1,
-    "14": 1,
-    "15": 1,
-    "16": 1,
-    "17": 1,
-    "18": 1,
-    "19": 1,
-    "20": 1,
-    "21": 1,
-    "23": 27,
-    "24": 23,
-    "25": 1,
-    "30": 3,
-    "50": 1231,
-    "55": 9,
-    "56": 4,
-    "57": 7,
-    "58": 2677,
-    "63": 6997,
-    "66": 11,
-    "67": 4,
-    "254": 1,
-    "255": 1
-   },
-   "easy.gif": {
-    "0": 1393,
-    "3": 25,
-    "4": 1,
-    "5": 1,
-    "6": 68,
-    "7": 1,
-    "9": 1,
-    "10": 19,
-    "11": 1,
-    "12": 1,
-    "16": 1,
-    "17": 1,
-    "18": 1,
-    "19": 1,
-    "20": 1,
-    "21": 1,
-    "23": 5,
-    "24": 8,
-    "30": 3,
-    "32": 12,
-    "50": 935,
-    "55": 2,
-    "56": 8,
-    "58": 838,
-    "254": 1,
-    "255": 1
-   },
-   "easy2.gif": {
-    "0": 1421,
-    "3": 40,
-    "4": 1,
-    "5": 1,
-    "6": 98,
-    "7": 1,
-    "8": 1,
-    "9": 1,
-    "10": 55,
-    "11": 1,
-    "12": 1,
-    "13": 1,
-    "16": 1,
-    "17": 1,
-    "18": 1,
-    "19": 1,
-    "20": 1,
-    "21": 1,
-    "23": 50,
-    "24": 21,
-    "25": 1,
-    "30": 7,
-    "32": 23,
-    "50": 6448,
-    "55": 4,
-    "56": 5,
-    "57": 4,
-    "58": 4267,
-    "63": 3307,
-    "66": 14,
-    "68": 11,
-    "254": 1,
-    "255": 1
-   },
-   "remix.gif": {
-    "0": 6243,
-    "1": 23,
-    "2": 20,
-    "3": 46,
-    "4": 1,
-    "5": 1,
-    "6": 480,
-    "7": 1,
-    "8": 1,
-    "9": 1,
-    "10": 89,
-    "11": 1,
-    "12": 1,
-    "13": 1,
-    "14": 1,
-    "15": 1,
-    "16": 1,
-    "17": 1,
-    "18": 1,
-    "19": 1,
-    "20": 1,
-    "21": 1,
-    "23": 13,
-    "24": 40,
-    "25": 1,
-    "30": 13,
-    "32": 19,
-    "50": 990,
-    "55": 15,
-    "56": 11,
-    "57": 10,
-    "58": 1738,
-    "63": 2075,
-    "66": 45,
-    "67": 1,
-    "68": 3,
-    "69": 35,
-    "254": 1,
-    "255": 1
-   }
-  },
+  "gif_id_counts": {},
   "kitty_layout_counts": {
    "DISARMED.kitty": {
     "0": 9324,
@@ -3019,6 +2903,7 @@
      "mesh": 363
     }
    }
-  }
+  },
+  "_note": "The gif-side census is EMPTY on purpose, and empty is a fact here rather than a gap. The RWIA table's censuses.gif_id_counts is keyed by level FILE name, because that game loads a level out of a set of shipped .gif files and a custom level is an overwrite of one of them. The Flash build has no such set: it embeds exactly ONE map inside the SWF (FLASH_MAP), so there are no file names to key on and no per-file counts to publish. Which ids that one map authors was measured elsewhere and stays there -- it is content, and this repository ships none. Consequently IdTable.gif_level_files is [] for this dialect, and 'authorable' here is derived from the SOURCE (an id the loader or the runtime writes carries an 'observed' note with its line) rather than cross-checked against a count. The .kitty-side censuses are the packaged table's, unchanged, because the .kitty side is the same one game."
  }
 }

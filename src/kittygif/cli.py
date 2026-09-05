@@ -1,15 +1,16 @@
 """``kittygif`` -- the command line.
 
     kittygif gif2kitty LEVEL.gif OUT.kitty [--name NAME] [--paint-style panels]
-    kittygif raw2kitty MAP.bin OUT.kitty --width W --height H
+    kittygif raw2kitty MAP.bin OUT.kitty --width W --height H [--dialect flash]
     kittygif kitty2gif LEVEL.kitty OUT.gif
     kittygif info FILE... [--width W --height H]
     kittygif emit-json LEVEL.{gif,bin,kitty} OUT_PREFIX
 
-The SUBCOMMAND picks the CONTAINER a level is read from: an indexed gif's
-palette indices, one raw byte per cell, or the ``.kitty`` chunk tree.  All three
-are the same grid model underneath, and everything downstream of the read --
-the conversion, the report, the writer -- is shared.
+Two orthogonal choices run through all of these.  The SUBCOMMAND picks the
+container -- an indexed gif's palette indices, one raw byte per cell, or the
+``.kitty`` chunk tree -- and ``--dialect`` picks the id table that interprets
+the cells.  ``--id-table PATH`` still outranks both, which is how the mutant
+gates run without ever editing the shipped data.
 
 ⚠ ``raw2kitty``'s ``--width``/``--height`` are REQUIRED and are a claim about
 the file, not a preference: a raw map states no dimensions of its own, so the
@@ -18,8 +19,6 @@ bytes.  ``info`` wants the same two before it will read one.
 
 Every subcommand writes its report: the human summary on stderr, and the
 machine-readable JSON to ``--report PATH`` (or to stdout with ``--report -``).
-``--id-table PATH`` converts by another copy of the table, which is how the
-mutant gates run without ever editing the shipped data.
 
 ``emit-json`` writes the two files Archipelago-CC's ``tileMapAnalyzer`` panel
 loads -- ``<PREFIX>_tilemap.json`` and ``<PREFIX>_tiles.json``.  ⛔ THOSE TWO
@@ -41,12 +40,12 @@ from typing import List, Optional
 from . import __version__, gifio, kittyio, rawio, viewer
 from .convert import ConversionError, gif_to_kitty, kitty_to_gif
 from .report import Report
-from .table import GIF, IdTable, Palette, TableError
+from .table import DEFAULT_DIALECT, DIALECTS, GIF, IdTable, Palette, TableError
 from .viewer import ViewerTraits
 
 
 def _table(args) -> IdTable:
-    table = IdTable.load(args.id_table)
+    table = IdTable.load(args.id_table, dialect=args.dialect)
     problems = table.check()
     if problems:
         raise TableError(
@@ -105,7 +104,7 @@ def _to_kitty(args, level) -> int:
     Only the CONTAINER differs between ``gif2kitty`` and ``raw2kitty``: once the
     cells are in a ``gif``-space :class:`~kittygif.level.Level` there is one
     conversion, one report and one writer.  Keeping that in one place is what
-    makes "the container does not change the meaning" a property of the code
+    makes "the container and the dialect are orthogonal" a property of the code
     rather than a claim about it.
     """
     table = _table(args)
@@ -210,14 +209,21 @@ def _cmd_emit_json(args) -> int:
 
 #: options that work on either side of the subcommand name
 _SHARED = {"id_table": None, "palette": None, "report": None, "quiet": False,
-           "viewer_traits": None, "emit_json": None,
+           "viewer_traits": None, "emit_json": None, "dialect": None,
            "width": None, "height": None, "paint_style": None, "no_paint": False}
 
 
 def _add_shared(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--dialect", metavar="NAME", default=argparse.SUPPRESS,
+                        choices=sorted(DIALECTS),
+                        help="which packaged id table interprets the cells: %s "
+                             "(default: %s). The SUBCOMMAND picks the container; "
+                             "this picks the meaning."
+                             % (", ".join(sorted(DIALECTS)), DEFAULT_DIALECT))
     parser.add_argument("--id-table", metavar="PATH", default=argparse.SUPPRESS,
-                        help="use another copy of id-table.json (default: the packaged one, "
-                             "or $KITTYGIF_ID_TABLE)")
+                        help="use another copy of the id table (outranks --dialect "
+                             "and $KITTYGIF_ID_TABLE's default; this is the seam "
+                             "the mutant gates run through)")
     parser.add_argument("--palette", metavar="PATH", default=argparse.SUPPRESS,
                         help="use another copy of palette.json")
     parser.add_argument("--report", metavar="PATH", default=argparse.SUPPRESS,

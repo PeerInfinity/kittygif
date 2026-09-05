@@ -1,15 +1,26 @@
 """Both directions, with the report.
 
-``gif -> kitty`` is near-total: only RWIA's water and its Shooter enemy have no
-C++ counterpart.  ``kitty -> gif`` is the heavier partial direction -- some forty
-C++-only mechanics have to be substituted.  Neither direction ever refuses a
-file; both say what they did (see ``report.py``).
+``gif -> kitty`` is near-total: in the RWIA dialect only that game's water and
+its Shooter enemy have no C++ counterpart, and in the Flash dialect nothing at
+all does.  ``kitty -> gif`` is the heavier partial direction -- some forty
+C++-only mechanics have to be substituted.  Unmappable content is never a
+refusal: both directions always emit, and always say what they did
+(see ``report.py``).
+
+⛔ **One thing is a refusal**, and it is a fact of the DATA rather than a policy
+of this module: a table may mark an id ``refuse``, meaning translating it is
+dangerous rather than merely lossy.  The Flash dialect marks its lethal range
+that way (ids 16..23 kill on contact -- FLASH_PL:377-380 -- while the RWIA
+dialect reads the same eight as bonus collectibles), so a level offered to the
+wrong dialect stops with the reason instead of becoming a death trap.  The
+packaged RWIA table refuses nothing, and nothing about it changed.
 
 The rules all come from the table.  This module knows only:
 
   * how to walk a grid,
   * that a ``shape: "vpair"`` target is a vertical door couple,
-  * that a position row moves a spawn FIELD instead of a cell.
+  * that a position row moves a spawn FIELD instead of a cell,
+  * that a refusal is reported by COUNT and never by coordinate.
 """
 
 from __future__ import annotations
@@ -48,8 +59,15 @@ def gif_to_kitty(
     positions: Dict[str, Tuple[int, int]] = {}
     vpair_cells: Dict[int, List[Tuple[int, int]]] = {}
     unknown: List[Tuple[int, int, int]] = []
+    refused: Dict[int, int] = {}
 
     for x, y, gid in level.cells():
+        # A REFUSAL is checked before anything else, and before the unknown-id
+        # path: it is the table saying this id is dangerous to translate, not
+        # that it has no rule.  See IdTable.refusal.
+        if table.refusal(gid) is not None:
+            refused[gid] = refused.get(gid, 0) + 1
+            continue
         rule = table.forward.get(gid)
         if rule is None:
             unknown.append((x, y, gid))
@@ -73,6 +91,26 @@ def gif_to_kitty(
         tiles[y * level.width + x] = target
         report.record(rule.cls, gid, rule.source_name, target,
                       table.kitty_name(target), rule.note, x, y)
+
+    if refused:
+        # ⛔ Counts, never coordinates.  A refusal is reported so the caller can
+        # see HOW MUCH of the level is affected; where those cells are is the
+        # source level's content, and this tool does not repeat other people's
+        # levels back at them (see the README's "What is NOT here").
+        raise ConversionError(
+            "%s refuses %s, so this level was not converted.\n%s\nThis is a "
+            "DIALECT mismatch, not a table gap: the same file may convert "
+            "cleanly under another --dialect, where these ids mean something "
+            "else entirely."
+            % (
+                _table_label(table),
+                ", ".join("%d cell(s) of id %d (%s)"
+                          % (n, gid, table.gif_name(gid))
+                          for gid, n in sorted(refused.items())),
+                "\n".join("  id %d: %s" % (gid, table.refusal(gid))
+                           for gid in sorted(refused)),
+            )
+        )
 
     if unknown:
         ids = sorted({gid for _x, _y, gid in unknown})
@@ -114,6 +152,11 @@ def gif_to_kitty(
             % (painted, paint_style or table.default_paint_style)
         )
     return out, report
+
+
+def _table_label(table: IdTable) -> str:
+    """How to name the table in a message: its dialect if it declares one."""
+    return ("the %r dialect" % table.dialect) if table.dialect else "this id table"
 
 
 def _position_attr(level: Level, field_name: str) -> str:

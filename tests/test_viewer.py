@@ -187,8 +187,8 @@ def test_the_two_id_spaces_agree_where_the_table_pairs_them(table, palette, trai
     assert agreed >= 10, "only %d pairs agreed -- too few to call this a property" % agreed
 
 
-def test_the_traits_file_covers_every_kind_the_table_names(table, traits):
-    assert traits.unknown_kinds(table) == []
+def test_the_traits_file_covers_every_kind_the_table_names(any_table, traits):
+    assert traits.unknown_kinds(any_table) == [], any_table.path
 
 
 def test_the_spawns_are_cells_on_one_side_and_FIELDS_on_the_other(tmp_path, table):

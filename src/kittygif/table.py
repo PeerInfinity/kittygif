@@ -18,6 +18,24 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 ID_TABLE_ENV = "KITTYGIF_ID_TABLE"
 PALETTE_ENV = "KITTYGIF_PALETTE"
 
+#: The packaged DIALECTS: which id table interprets a level's cells.
+#:
+#: A dialect is not a container.  The same id space arrives either as an indexed
+#: gif's palette indices or as one raw byte per cell (``rawio``), and the same
+#: cell numbers mean different things to the two engines that read them -- so
+#: which FILE is read and which TABLE reads it are two separate choices.  Adding
+#: a dialect is adding a table and a row here; it is not a change to the
+#: converter (see the README's "Everything id-shaped is DATA").
+#:
+#: ⛔ This mapping is a lookup of shipped file NAMES, not a place for id facts.
+DIALECTS = {
+    "rwia": "id-table.json",
+    "flash": "id-table-flash.json",
+}
+
+#: what ``--dialect`` means when nobody says: the table this package always had.
+DEFAULT_DIALECT = "rwia"
+
 #: The two ends of the translation, named the way the table names them.
 GIF = "gif"
 KITTY = "kitty"
@@ -77,8 +95,18 @@ class IdTable:
 
     # ------------------------------------------------------------------ loading
     @classmethod
-    def load(cls, path: Optional[str] = None) -> "IdTable":
-        path = path or os.environ.get(ID_TABLE_ENV) or os.path.join(DATA_DIR, "id-table.json")
+    def load(cls, path: Optional[str] = None,
+             dialect: Optional[str] = None) -> "IdTable":
+        """Resolve the table to read, in that order of precedence.
+
+        An explicit ``path`` wins, then ``$KITTYGIF_ID_TABLE``, then the named
+        ``dialect``'s packaged file.  ⛔ That order is load-bearing and not a
+        preference: ``--id-table`` is the seam every mutant gate in the suite
+        runs through (a mutated COPY, driven through the real code path), so a
+        dialect flag that outranked it would quietly take the gates away.
+        """
+        path = (path or os.environ.get(ID_TABLE_ENV)
+                or os.path.join(DATA_DIR, dialect_file(dialect)))
         with open(path, encoding="utf-8") as fh:
             raw = json.load(fh)
         table = cls(raw=raw, path=path)
@@ -172,7 +200,38 @@ class IdTable:
                     )
         return out
 
+    # -------------------------------------------------------------- refusals
+    def refusal(self, gid: int) -> Optional[str]:
+        """Why this dialect REFUSES to read gif id ``gid``, or ``None``.
+
+        A refusal is a table FACT, not a code branch: some id in some dialect is
+        dangerous to translate rather than merely lossy, and the honest answer is
+        to stop and say which line says so.  The distinction from an unknown id
+        matters -- an unknown id is a GAP in the table, a refused one is a
+        DECISION in it -- and the two get different messages.
+
+        ⛔ A refused id may not appear in any pair row, in EITHER direction; a
+        reverse row targeting one would emit the hazard rather than read it.
+        ``check()`` enforces that.
+        """
+        meta = self.gif_ids.get(gid)
+        return meta.get("refuse") if meta else None
+
+    @property
+    def refused_gif_ids(self) -> Tuple[int, ...]:
+        return tuple(sorted(i for i, meta in self.gif_ids.items() if meta.get("refuse")))
+
     # ------------------------------------------------------------- named lookups
+    @property
+    def dialect(self) -> Optional[str]:
+        """Which dialect this FILE says it is, or ``None`` if it does not say.
+
+        Informational: the loader never branches on it.  It exists so a table
+        reached by ``--id-table`` can be identified in a report, and so the two
+        packaged files can be asserted to be the ones their names claim.
+        """
+        return self.raw.get("_dialect")
+
     def gif_name(self, gid: int) -> str:
         meta = self.gif_ids.get(gid)
         return meta["name"] if meta else "gif id %d (not in the table)" % gid
@@ -307,6 +366,14 @@ class IdTable:
             for gid in _as_ids(row["gif"]):
                 if gid not in self.gif_ids:
                     problems.append("pair %r names gif id %d, absent from gif.ids" % (row, gid))
+                elif self.gif_ids[gid].get("refuse"):
+                    # Either direction is a defect.  Forward, the row contradicts
+                    # the refusal; backward, it would EMIT the id the refusal
+                    # exists to keep out of a file.
+                    problems.append(
+                        "pair %r names gif id %d, which this table refuses (%s)"
+                        % (row, gid, self.gif_ids[gid]["refuse"].split(".")[0])
+                    )
             if isinstance(row["kitty"], str):
                 if row["kitty"] not in self.position_fields:
                     problems.append("pair %r names unknown position field" % row)
@@ -327,6 +394,18 @@ class IdTable:
             if layout not in self.kitty_ids:
                 problems.append("paintable layout %d is not a layout id" % layout)
         return problems
+
+
+def dialect_file(dialect: Optional[str]) -> str:
+    """The packaged file name for a dialect, refusing an unknown one BY NAME."""
+    name = DEFAULT_DIALECT if dialect is None else dialect
+    try:
+        return DIALECTS[name]
+    except KeyError:
+        raise TableError(
+            "unknown dialect %r; this package ships %s"
+            % (dialect, ", ".join(sorted(DIALECTS)))
+        )
 
 
 def _as_ids(value: Union[int, Sequence[int]]) -> Tuple[int, ...]:

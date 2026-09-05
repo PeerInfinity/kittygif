@@ -26,12 +26,21 @@ from kittygif.table import GIF, KITTY, IdTable
 class Vocab:
     """The ids of one space, selected by KIND and by AUTHORABILITY.
 
-    *Authorable* is the table's own distinction, not ours.  An id the table
-    marks with an ``observed`` note ("never occurs in any of the four RWK
-    gifs") is a value the ENGINE generates at load time or keeps as runtime
-    state -- a level file never carries it, so a sample must not either.  Every
-    other id is fair game.  The gif side's census is the cross-check:
-    :meth:`check_against_census` asserts the two derivations agree.
+    *Authorable* is the table's own distinction, not ours.  Two per-id notes take
+    an id out of the set, and both are the table's:
+
+    ``observed``
+        the ENGINE generates this at load time or keeps it as runtime state, so
+        a level FILE never carries it (a decoration quadrant, a parallax tile,
+        an activated checkpoint).
+    ``refuse``
+        this dialect refuses to READ the id at all, because translating it is
+        dangerous rather than lossy (the Flash lethal range).  An id a converter
+        will not accept is not one a sample may author.
+
+    Every other id is fair game.  Where the table has a census of real level
+    files, :meth:`check_against_census` cross-checks the derivation against it;
+    a dialect whose game ships one embedded map has no such census and says so.
     """
 
     def __init__(self, table: IdTable, space: str) -> None:
@@ -42,7 +51,8 @@ class Vocab:
     # ------------------------------------------------------------------ sets
     @property
     def authorable(self) -> List[int]:
-        return sorted(i for i, meta in self.ids.items() if "observed" not in meta)
+        return sorted(i for i, meta in self.ids.items()
+                      if "observed" not in meta and not meta.get("refuse"))
 
     @property
     def empty(self) -> int:

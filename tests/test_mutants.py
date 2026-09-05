@@ -4,8 +4,13 @@ A gate that cannot go red on a broken table is not a gate.  Each test here
 breaks the table in one specific way, in a COPY (the shipped data file is never
 edited), and asserts the matching gate fails.
 
-  (i)  table-swap     -- transpose two ids; L1 must go red.
-  (ii) degrade-policy  -- retag a class-(c) kind as (a); the report gate must go red.
+  (i)   table-swap      -- transpose two ids; L1 must go red.
+  (ii)  degrade-policy  -- retag a class-(c) kind as (a); the report gate must go red.
+  (iii) lost-refusal    -- drop a Flash refusal and restore the other dialect's
+                           row for that id; the shipped-data range gate must go
+                           red, and a LETHAL cell must be shown converting
+                           silently.  Mutant (i) is also run over the Flash
+                           table, because a second table needs its own control.
 
 **Mutant (i) came back with a finding.**  Transposing two ``both`` rows is
 INVISIBLE to L1: a ``both`` row is one edge of a bijection, permuting the edges
@@ -240,3 +245,87 @@ def test_the_gate_fixture_exercises_each_run_length(table, length):
         if current:
             runs.append(len(current))
     assert length in runs
+
+
+# ------------------------------------------------- mutant (iii): a lost refusal
+#
+# The Flash dialect's refusals are the one gate in this suite whose subject is a
+# DECISION rather than a derivation: the table says "ids 16..23 kill on contact
+# (FLASH_PL:377-380), do not translate them".  Nothing else in the table implies
+# it -- so a copy with the refusals quietly removed is a table that still checks
+# clean, still round-trips, and turns a lethal cell into a bonus tile.  Both
+# halves are pinned, exactly as mutant (i)'s were.
+def _refusal_removed(raw):
+    """Drop one refusal and restore the row the other dialect has for it."""
+    victim = next(sid for sid, meta in raw["gif"]["ids"].items() if meta.get("refuse"))
+    del raw["gif"]["ids"][victim]["refuse"]
+    raw["pairs"].append({"gif": int(victim), "kitty": 0, "cls": "b",
+                         "directions": "gif->kitty",
+                         "note": "a re-added rule for a refused id"})
+    return int(victim)
+
+
+def _victim_id(flash):
+    import json as _json
+
+    return _refusal_removed(_json.loads(_json.dumps(flash.raw)))
+
+
+def test_the_shipped_flash_table_refuses_and_the_mutant_does_NOT(tmp_path, flash):
+    """The mutant really is a valid table -- that is what makes it dangerous."""
+    victim = _victim_id(flash)
+    mutant = IdTable.load(fixtures.mutant_table(tmp_path, flash, _refusal_removed))
+    assert mutant.check() == [], "the mutant must be a VALID table, just a wrong one"
+    assert flash.refusal(victim) is not None
+    assert mutant.refusal(victim) is None
+
+
+def test_a_lost_refusal_converts_a_LETHAL_cell_SILENTLY(tmp_path, flash):
+    """The consequential half: no error, no report entry that says 'lethal'."""
+    victim = _victim_id(flash)
+    level = fixtures.gif_grid(flash, [])
+    level.set(5, 3, victim)
+
+    with pytest.raises(Exception):
+        gif_to_kitty(level, flash, name="SHIPPED")
+
+    mutant = IdTable.load(fixtures.mutant_table(tmp_path, flash, _refusal_removed))
+    out, report = gif_to_kitty(level, mutant, name="MUT")
+    assert out.tiles[3 * level.width + 5] == mutant.kitty_empty
+    assert not report.solvability_at_risk, (
+        "and it does not even warn -- a cell that kills the robot became air and "
+        "the report calls that cosmetic")
+
+
+def test_the_range_gate_is_what_SEES_a_lost_refusal(tmp_path, flash):
+    """The gate that discriminates, shown red on the mutant.
+
+    ⚠ It is an assertion about the shipped DATA (the refused set is exactly the
+    range ``Player.update`` dies on), not a derivation from elsewhere in the
+    table -- which is why the mutant above passes ``check()``.  A future slice
+    that can derive the range from the source instead should say so here.
+    """
+    shipped = set(flash.refused_gif_ids)
+    assert shipped == set(range(16, 24)), "the control: the shipped table is right"
+
+    mutant = IdTable.load(fixtures.mutant_table(tmp_path, flash, _refusal_removed))
+    assert set(mutant.refused_gif_ids) != set(range(16, 24))
+
+
+def test_a_one_directional_transposition_turns_L1_RED_in_the_FLASH_dialect(
+        tmp_path, flash):
+    """Mutant (i), over the second table: the round trip still has teeth there."""
+    path = fixtures.mutant_table(tmp_path, flash, _transpose_one_direction)
+    mutant = IdTable.load(path)
+    assert mutant.check() == []
+
+    level = fixtures.l1_gif(flash)          # built from the REAL flash table
+    back, _f, _r = _roundtrip(mutant, level)
+    assert back.tiles != level.tiles
+
+
+def test_L1_is_green_on_the_shipped_flash_table(flash):
+    """The control mutant (i) above is measured against."""
+    level = fixtures.l1_gif(flash)
+    back, _f, _r = _roundtrip(flash, level)
+    assert back.tiles == level.tiles
