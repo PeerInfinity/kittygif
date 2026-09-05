@@ -19,6 +19,18 @@ replays ``<name>.tape.csv``, and requires:
   * the observation digest to match the recorded one, which turns the tapes into
     a regression gate on the whole chain -- table, writer, container, engine.
 
+⚠ **The digest is not perfectly reproducible, and that was measured, not
+assumed.**  Over eight consecutive runs on one box (2026-09-04, load 6.6-10.6,
+``--seed=1`` as always), six agreed with every recorded value and two came back
+with ONE sample's win one or two ticks early -- ``corridor-rwk`` at 2420 instead
+of 2422 in one run, ``corridor`` at 1033 instead of 1034 in another, each with
+the digest that follows from it.  It was a different sample each time, the two
+longest tapes, and no run ever reported a DEATH or a failure to win.  So the
+recorded numbers are the modal values and the win/no-death verdict is solid,
+while a lone off-by-one-tick digest on a long tape is this box, not a
+regression: re-run before believing one.  Reproducing it exactly is an engine
+timing question and lives in the engine's own tree, not here.
+
     python3 scripts/local/completability_gate.py
     python3 scripts/local/completability_gate.py --write     # re-record digests
 """

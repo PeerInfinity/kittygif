@@ -27,6 +27,18 @@
    "final_x": 9089.0,
    "digest": "4fa1aa105fb31f51e313b387e47c83ea"
   },
+  "flash-corridor": {
+   "name": "flash-corridor",
+   "grid": [
+    80,
+    12
+   ],
+   "ticks_run": 842,
+   "won_at": 810,
+   "died_at": null,
+   "final_x": 3047.0,
+   "digest": "5cf9b6e93243245c6b2a1d90cd589755"
+  },
   "minimal": {
    "name": "minimal",
    "grid": [

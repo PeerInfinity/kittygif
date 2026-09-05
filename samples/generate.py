@@ -55,6 +55,9 @@ from kittygif.report import Report                              # noqa: E402
 from kittygif.table import GIF, KITTY, IdTable, Palette         # noqa: E402
 from kittygif.viewer import ViewerTraits                        # noqa: E402
 
+#: the two packaged dialects, named the way ``--dialect`` names them
+RWIA, FLASH = "rwia", "flash"
+
 #: One tape line is ``button,fromTick,toTick`` (inclusive), the format the
 #: engine's own oracle driver reads.  A span's FIRST tick is the button's
 #: press edge, which is what a jump listens for.
@@ -134,8 +137,23 @@ def build_steps(table: IdTable):
     return level, tape, 600
 
 
-def build_corridor(table: IdTable):
-    """Every authorable id of the gif dialect, in one walkable level."""
+def build_corridor(table: IdTable, name: str = "corridor", ticks: int = 1500):
+    """Every authorable id of THIS dialect's gif id space, in one walkable level.
+
+    One recipe, both dialects.  The layout is level DESIGN -- where a thing goes
+    and why -- and that reasoning does not change between two games that share
+    an id space: powerups in a row you walk down, hazards sealed in the cellar,
+    enemies in loft pockets behind the gates their keycards open.  What changes
+    is the VOCABULARY, and the vocabulary comes from the table.
+
+    So the kinds a dialect may not have are asked for with ``Vocab.maybe`` (the
+    Flash build has no collectibles, no secret-passage air and no water), and
+    the kinds every dialect must have are asked for with ``kind``/``one``, which
+    raise.  ``_assert_complete`` then requires the finished level to carry every
+    authorable id of whichever table it was handed -- so neither showcase can
+    quietly stop showing something, and adding a row to either table makes the
+    next run lay it out.
+    """
     v = Vocab(table, GIF)
     materials = v.kind("solid-bulk")
     s = Sketch(Corridor.HEIGHT, v.empty)
@@ -149,21 +167,21 @@ def build_corridor(table: IdTable):
     # -- every collectable thing the dialect can name, in a row you walk down.
     #    The three keycards are in here, and every gate is further right, so the
     #    "keys before their gates" constraint holds by construction.
-    for gid in v.kind("pickup") + v.kind("collectible"):
+    for gid in v.kind("pickup") + v.maybe("collectible"):
         s.set(x, walk, gid)
         x += 2
 
     # -- the things you walk past or through
     s.set(x, walk, v.one("checkpoint"))
     x += 2
-    for gid in v.kind("secret-air"):          # walkable, never drawn, no respawn
+    for gid in v.maybe("secret-air"):         # walkable, never drawn, no respawn
         s.set(x, walk, gid)
         s.set(x + 1, walk, gid)
         x += 3
     for gid in v.kind("decor"):               # non-solid scenery, at head height
         s.set(x, walk - 1, gid)
         x += 2
-    for gid in v.kind("solid-decor") + v.kind("solid-breakable"):
+    for gid in v.maybe("solid-decor") + v.kind("solid-breakable"):
         s.set(x, Corridor.CEILING, gid)       # solid, so it hangs in the ceiling plane
         x += 2
 
@@ -172,9 +190,10 @@ def build_corridor(table: IdTable):
     s.x = x + 1
     x0, x1 = c.pocket(Corridor.CELLAR, 3)
     s.row(Corridor.CELLAR[-1], x0, x1, v.one("hazard-source"))          # an acid pool
-    x0, x1 = c.pocket(Corridor.CELLAR, 3)
-    for y in Corridor.CELLAR:                                            # a water column
-        s.set(x0 + 1, y, v.one("fluid"))
+    for fluid in v.maybe("fluid"):                                       # a water column
+        x0, x1 = c.pocket(Corridor.CELLAR, 3)
+        for y in Corridor.CELLAR:
+            s.set(x0 + 1, y, fluid)
 
     # -- the gated pens.  One gate per keycard, each a two-cell couple across the
     #    robot's body; the enemies live in sealed loft pockets inside the pens.
@@ -205,9 +224,13 @@ def build_corridor(table: IdTable):
     s.column(0, materials[0])
     s.column(width - 1, materials[0])
 
-    level = s.to_level(GIF, "CORRIDOR")
-    _assert_complete(level, v, "corridor")
-    return level, [("right", 0, 1400)], 1500
+    level = s.to_level(GIF, name.upper())
+    _assert_complete(level, v, name)
+    # Walk right, all the way.  The budget is per-sample and PINNED rather than
+    # derived, because it is a claim the oracle checked against a real engine
+    # run -- see samples/oracle-expected.json.  A table edit that lengthens a
+    # corridor past its budget must fail the oracle, not quietly grow it.
+    return level, [("right", 0, ticks - 100)], ticks
 
 
 def build_corridor_rwk(table: IdTable):
@@ -374,12 +397,44 @@ def _assert_complete(level: Level, v: Vocab, name: str) -> None:
 
 
 # -------------------------------------------------------------------- writing
+#: name -> (builder, blurb, DIALECT).  The dialect is the third column because
+#: a sample is authored in one game's id space and cannot be read in another's:
+#: `corridor` and `flash-corridor` run the SAME recipe over two tables and come
+#: out as two different levels, which is the clearest statement of what a
+#: dialect is that this repository can make.
 SAMPLES = {
-    "minimal": (build_minimal, "a robot, a floor and a kitty"),
-    "steps": (build_steps, "jump platforms, one key gate, one enemy"),
-    "corridor": (build_corridor, "every authorable id of the gif dialect"),
-    "corridor-rwk": (build_corridor_rwk, "every authorable layout id of the .kitty side"),
+    "minimal": (build_minimal, "a robot, a floor and a kitty", RWIA),
+    "steps": (build_steps, "jump platforms, one key gate, one enemy", RWIA),
+    "corridor": (build_corridor, "every authorable id of the RWIA gif dialect", RWIA),
+    "corridor-rwk": (build_corridor_rwk,
+                     "every authorable layout id of the .kitty side", RWIA),
+    "flash-corridor": (lambda table: build_corridor(table, "flash-corridor", 1200),
+                       "every authorable id of the Flash dialect, as raw map bytes",
+                       FLASH),
 }
+
+
+def dialect_of(name: str) -> str:
+    """Which id space a sample is authored in.  Never guessed from the files."""
+    return SAMPLES[name][2]
+
+
+def table_for(name: str) -> IdTable:
+    """The table a sample MUST be built and read with."""
+    return IdTable.load(dialect=dialect_of(name))
+
+
+def containers_of(name: str) -> Tuple[str, ...]:
+    """The container suffixes a gif-space sample is written into.
+
+    Both dialects are one pixel/byte per tile, so both can be written as an
+    indexed gif -- and the site gallery, the preview and the round-trip tests
+    all read that one.  The FLASH dialect gets the raw map bytes as well,
+    because that is the container its game actually reads (a DefineBinaryData
+    blob, not a file), and a Flash sample that could not be handed to
+    ``raw2kitty`` would not be a sample of anything.
+    """
+    return (".gif", ".bin") if dialect_of(name) == FLASH else (".gif",)
 
 
 def _relativise(path: str) -> None:
@@ -447,9 +502,21 @@ def _write_report(report: Report, path: str) -> None:
         fh.write("\n")
 
 
-def write_sample(name: str, out_dir: str, table: IdTable, palette: Palette,
-                 traits: ViewerTraits) -> dict:
-    builder, blurb = SAMPLES[name]
+def write_sample(name: str, out_dir: str, table: Optional[IdTable] = None,
+                 palette: Optional[Palette] = None,
+                 traits: Optional[ViewerTraits] = None) -> dict:
+    builder, blurb, dialect = SAMPLES[name]
+    table = table if table is not None else table_for(name)
+    if table.dialect != dialect:
+        # A sample built through the wrong table is the quiet failure here: the
+        # ids all exist in both spaces, so it would produce a plausible level
+        # that means something else.  Refuse instead.
+        raise SystemExit(
+            "%s is a %r sample but was handed the %r table (%s)"
+            % (name, dialect, table.dialect, table.path))
+    palette = palette if palette is not None else Palette.load()
+    traits = traits if traits is not None else ViewerTraits.load()
+
     level, tape, ticks = builder(table)
     os.makedirs(out_dir, exist_ok=True)
     base = os.path.join(out_dir, name)
@@ -457,6 +524,15 @@ def write_sample(name: str, out_dir: str, table: IdTable, palette: Palette,
     if level.space == GIF:
         converted, report = gif_to_kitty(level, table, name=level.name)
         gifio.write(level, base + ".gif", palette)
+        if ".bin" in containers_of(name):
+            # One byte per cell, row-major -- exactly what rawio.read expects,
+            # and exactly what the Flash loader reads (FLASH_PS:170-176).
+            # Written HERE and not by the package: kittygif deliberately ships
+            # no raw WRITER (see src/kittygif/rawio.py), and a sample that
+            # synthesised its own level is the one caller that already has the
+            # cells in hand.
+            with open(base + ".bin", "wb") as fh:
+                fh.write(bytes(level.tiles))
         kittyio.write(converted, base + ".kitty", table)
         direction = "gif2kitty"
     else:
@@ -482,6 +558,7 @@ def write_sample(name: str, out_dir: str, table: IdTable, palette: Palette,
     return {
         "name": name,
         "blurb": blurb,
+        "dialect": dialect,
         "authored_in": level.space,
         "converted_by": direction,
         "grid": [level.width, level.height],
@@ -500,14 +577,17 @@ def main() -> int:
     ap.add_argument("--only", action="append", choices=sorted(SAMPLES))
     args = ap.parse_args()
 
-    table = IdTable.load()
-    problems = table.check()
-    if problems:
-        raise SystemExit("the id table is inconsistent:\n  " + "\n  ".join(problems))
     palette, traits = Palette.load(), ViewerTraits.load()
-
-    for space in (GIF, KITTY):
-        print(Vocab(table, space).check_against_census())
+    tables = {}
+    for dialect in sorted({d for _b, _t, d in SAMPLES.values()}):
+        loaded = IdTable.load(dialect=dialect)
+        problems = loaded.check()
+        if problems:
+            raise SystemExit("%s is inconsistent:\n  %s"
+                             % (loaded.path, "\n  ".join(problems)))
+        tables[dialect] = loaded
+        for space in (GIF, KITTY):
+            print("%-6s %s" % (dialect, Vocab(loaded, space).check_against_census()))
 
     names = args.only or sorted(SAMPLES)
     manifest = []
@@ -517,10 +597,12 @@ def main() -> int:
         target = args.check or tempfile.mkdtemp(prefix="kittygif-samples-")
 
     for name in names:
-        summary = write_sample(name, os.path.join(target, name), table, palette, traits)
+        summary = write_sample(name, os.path.join(target, name),
+                               tables[dialect_of(name)], palette, traits)
         manifest.append(summary)
-        print("%-13s %-8s %3dx%-3d %2d ids  -> %s/"
-              % (name, summary["authored_in"], summary["grid"][0], summary["grid"][1],
+        print("%-15s %-6s %-8s %3dx%-3d %2d ids  -> %s/"
+              % (name, summary["dialect"], summary["authored_in"],
+                 summary["grid"][0], summary["grid"][1],
                  summary["distinct_ids"], os.path.join(target, name)))
 
     manifest_path = os.path.join(target, "samples.json")

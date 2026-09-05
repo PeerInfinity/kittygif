@@ -69,6 +69,19 @@ class Vocab:
             )
         return out
 
+    def maybe(self, name: str) -> List[int]:
+        """``kind(name)``, but ``[]`` when this dialect has no such id.
+
+        A recipe written against one dialect's vocabulary names kinds the other
+        may not have -- the Flash game has no collectibles, no secret-passage
+        air and no water, and no amount of level design conjures one.  Asking
+        with ``maybe`` says "show these if this dialect has them"; asking with
+        ``kind`` says "this dialect must have them" and raises if it does not.
+        Both are needed, and using the wrong one is how a showcase silently
+        stops showing something.
+        """
+        return [i for i in self.authorable if self.ids[i].get("kind") == name]
+
     def one(self, name: str) -> int:
         got = self.kind(name)
         if len(got) != 1:
