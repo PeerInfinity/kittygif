@@ -21,7 +21,7 @@ from .level import Level
 from .report import Report
 from .table import IdTable, Palette, TableError
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "ConversionError",

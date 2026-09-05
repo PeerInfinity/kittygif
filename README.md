@@ -252,9 +252,12 @@ files, and confirmed end to end by the engine's own load.
 
 Some ids are never authored: the engine generates them at load (decoration
 quadrants, parallax backgrounds) or uses them as runtime state (an activated
-checkpoint). The table marks them, and a census of real level files agrees
-exactly with that marking — two independent derivations of "what a level file
-may contain", which is what `samples/generate.py` builds `corridor` from.
+checkpoint). The table marks them, and a census of real levels is held against
+that marking — two independent derivations of "what a level file may contain",
+which is what `samples/generate.py` builds `corridor` from. For the RWIA dialect
+the two agree exactly; for the Flash one the census is a single map, so it is a
+subset, and the ids it does not use must be exactly the ones the table records
+no source reference for. Neither dialect is allowed a gap nobody accounts for.
 
 Gates are the one shape the flat table cannot express. A gif gate is a vertical
 run of one id, **any height**; the other format's door is exactly a top/bottom
@@ -380,7 +383,7 @@ and the gif end differs where the two engines disagree about the same numbers:
 | id 32 | water, and it changes the robot's motion — class (c) | inert, blank in the tilesheet — class (b) |
 | id 69 | a Shooter enemy — class (c) | inert, but `>= 50`, so a solid block — class (b) |
 | class-(c) forward rows | 2 | **0** |
-| level files | four `.gif`s, with a census | one map inside the SWF, so no census |
+| level files | four `.gif`s, with a census keyed by file name | none — one map inside the SWF, censused by the class that carries it |
 
 ⛔ **The drift gate.** Two tables describing one container is this design's
 standing hazard: a fix applied to one file and not the other is invisible until
@@ -390,11 +393,17 @@ substitute rule — are asserted **byte for byte identical** between the two
 files, as serialised JSON so a new key cannot slip through, and the gate is
 shown red on a deliberately drifted copy.
 
-A dialect's census may be **empty**, and empty is a fact rather than a gap. The
-Flash build embeds exactly one map, so there are no level files to key a census
-on and no overwrite slots to derive; the table says so in `censuses._note`, and
-the census-derived tests hold each dialect to its own answer by name rather than
-skipping the one that has none.
+**A census is keyed by what the game ships, and the shape is the fact.** The
+RWIA game loads a level out of a set of `.gif` files, so `censuses.gif_id_counts`
+is keyed by file NAME and those keys double as the overwrite slots
+`IdTable.gif_level_files` derives. The Flash build embeds exactly one map inside
+the SWF, so there is no file name to key on and no overwrite slot to derive: its
+census is keyed by the class that carries the map, under
+`censuses.embedded_map_id_counts`, and `gif_id_counts` stays `{}` — which is why
+its slot list is `[]` *by construction* rather than by omission. The table says
+which and why in `censuses._note`; the tests hold each dialect to its own answer
+by name, and a control requires each to use **exactly one** of the two blocks so
+neither arm can pass on two empty ones.
 
 ## Everything id-shaped is DATA
 
@@ -476,11 +485,16 @@ convert someone's level, the result is still their level.
 The scripts under `scripts/local/` are the only ones that touch real data; they
 take paths on the command line and write outside this tree.
 
-**No map data, and no census of one.** The Flash build's map lives inside its
-SWF; what that one map actually contains — which ids, how many of each, where —
-is content, and none of it is here. The Flash table publishes the *vocabulary*
-the game's code reads, each row citing the source line that reads it, and its
-gif-side census is empty on purpose.
+**No map data.** The Flash build's map lives inside its SWF, and the map is not
+here: no bytes, no geometry, no per-cell listing, no digest of the blob. What the
+Flash table publishes is the *vocabulary* the game's code reads, each row citing
+the source line that reads it, plus an id **histogram** of that one map under
+`censuses.embedded_map_id_counts` — which ids it authors and how many of each,
+the same courtesy the packaged table already extends to `classic.gif`. A
+histogram is not a map: it fixes no cell to any position, and 15,792 cells with
+those counts can be arranged in more ways than there are atoms. What it buys is
+that the table's claim about what a level may contain can be checked against
+what a real level does contain.
 
 **No reverse level converter — no `kitty2raw`.** Reading raw map bytes is safe;
 writing them is not, and the reason is ids 16–23. A writer would have to decide,
