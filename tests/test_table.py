@@ -12,7 +12,8 @@ import json
 import pytest
 
 import fixtures
-from kittygif.table import CLASS_ORDER, IdTable, TableError
+from kittygif.table import (CLASS_ORDER, GIF_CENSUS_BLOCKS, UNREFERENCED_PROV,
+                            IdTable, TableError)
 
 
 def test_shipped_table_is_consistent(any_table):
@@ -88,20 +89,23 @@ def test_data_files_ship_with_the_package(any_table, palette):
 def test_the_level_file_names_come_from_the_census(any_table):
     """The overwrite-slot list is DERIVED from the census, in EVERY dialect.
 
-    ⚑ The two dialects have different answers and both are checked BY NAME
-    rather than one of them being skipped:
+    ⚑ Both dialects HAVE a gif-side census now, and they key it differently
+    because their games differ.  Both answers are checked BY NAME rather than
+    one of them being skipped:
 
     * **rwia** -- the game loads a level out of a set of shipped ``.gif`` files
-      and a custom level is an overwrite of one of them, so the census keys ARE
-      the slot list and it must be non-empty.
-    * **flash** -- the game embeds exactly one map inside the SWF.  There are no
-      level files, so there is no census to key on and the list is empty.  That
-      is a measured fact about the game, not a gap in the table, and the table's
-      own ``censuses._note`` has to say so.
+      and a custom level is an overwrite of one of them, so ``gif_id_counts``'
+      keys ARE the slot list and it must be non-empty.
+    * **flash** -- the game embeds exactly one map inside the SWF.  Its census
+      lives under ``embedded_map_id_counts``, keyed by the class that carries
+      the map, and ``gif_id_counts`` stays empty -- so the overwrite-slot list
+      is ``[]`` because there is nothing to overwrite, not because nobody
+      counted.  The table's own ``censuses._note`` has to say which and why.
     """
+    censuses = any_table.raw["censuses"]
     files = any_table.gif_level_files
-    counts = any_table.raw["censuses"]["gif_id_counts"]
-    assert files == sorted(counts)
+    counts = censuses["gif_id_counts"]
+    assert files == sorted(k for k in counts if not k.startswith("_"))
 
     if counts:
         assert all(f.endswith(".gif") for f in files)
@@ -110,12 +114,68 @@ def test_the_level_file_names_come_from_the_census(any_table):
             assert counts[name]
     else:
         assert files == []
-        assert any_table.raw["censuses"].get("_note"), (
-            "%s ships an empty census with no explanation; empty has to be a "
-            "stated fact, not a silence" % any_table.path)
+        assert censuses.get("_note"), (
+            "%s derives no overwrite slots; which shape its census uses instead "
+            "has to be a stated fact, not a silence" % any_table.path)
+        embedded = censuses["embedded_map_id_counts"]
+        keys = [k for k in embedded if not k.startswith("_")]
+        assert keys, (
+            "%s has neither a file census nor an embedded-map one; an empty "
+            "overwrite-slot list must still be backed by counts" % any_table.path)
+        assert embedded.get("_measured"), (
+            "%s publishes an embedded-map census with no provenance" % any_table.path)
+        for key in keys:
+            # a class name, not a level file -- the shapes must not be confusable
+            assert not key.endswith(".gif")
+            assert embedded[key]
 
 
-def test_exactly_one_packaged_dialect_has_a_gif_census(table, flash):
-    """The control that keeps the arm above from passing on two empty censuses."""
-    assert table.raw["censuses"]["gif_id_counts"] != {}
-    assert flash.raw["censuses"]["gif_id_counts"] == {}
+def test_each_packaged_dialect_uses_EXACTLY_ONE_census_shape(any_table):
+    """The control that keeps the arm above from passing on two empty blocks.
+
+    Both blocks empty would satisfy "the list equals the file census" trivially,
+    and both blocks full would mean the table cannot say which one
+    ``gif_level_files`` should believe.  Exactly one, for every dialect, by name.
+    """
+    censuses = any_table.raw["censuses"]
+    used = [b for b in GIF_CENSUS_BLOCKS
+            if [k for k in (censuses.get(b) or {}) if not k.startswith("_")]]
+    assert used == [any_table.gif_census_block]
+    assert len(used) == 1, (
+        "%s counts its gif ids in %s; a dialect keys its census one way"
+        % (any_table.path, used or "no block at all"))
+
+
+def test_the_two_packaged_DIALECTS_key_their_censuses_DIFFERENTLY(table, flash):
+    """...and they are not the same one block, which is the whole point."""
+    assert table.gif_census_block == "gif_id_counts"
+    assert flash.gif_census_block == "embedded_map_id_counts"
+    assert flash.gif_level_files == []
+    assert list(flash.gif_census) == ["xplor.PlayState_mapData"]
+    counts = flash.gif_census["xplor.PlayState_mapData"]
+    # the map is 188 x 84 one byte per cell, so the counts must exhaust it
+    assert sum(counts.values()) == 188 * 84
+
+
+def test_the_unreferenced_ids_are_DERIVED_and_each_line_names_its_own_row(any_table):
+    """``gif_unreferenced_ids`` reads provenance; a drifted line is not trusted."""
+    derived = any_table.gif_unreferenced_ids
+    assert derived == sorted(set(derived))
+    for gid in derived:
+        assert any(UNREFERENCED_PROV.match(line) for line in any_table.gif_ids[gid]["prov"])
+        # unreferenced is not the same distinction as ``observed``
+        assert "observed" not in any_table.gif_ids[gid]
+
+
+def test_an_unreferenced_prov_line_on_the_WRONG_ROW_is_a_table_error(tmp_path, flash):
+    """Red-first: the derivation refuses a line that names another id."""
+    victim = flash.gif_unreferenced_ids[0]
+
+    def drift(raw):
+        prov = raw["gif"]["ids"][str(victim)]["prov"]
+        prov[:] = [UNREFERENCED_PROV.sub("no reference to id 9999 anywhere in the Flash sources", p)
+                   if UNREFERENCED_PROV.match(p) else p for p in prov]
+
+    drifted = IdTable.load(fixtures.mutant_table(tmp_path, flash, drift))
+    with pytest.raises(TableError, match="unreferenced-provenance line of id 9999"):
+        drifted.gif_unreferenced_ids

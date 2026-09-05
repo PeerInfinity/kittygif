@@ -30,10 +30,11 @@ import os
 
 import pytest
 
+import fixtures
 from fixtures import mappable_gif_ids
 from kittygif import gifio, kittyio
 from kittygif.convert import gif_to_kitty, kitty_to_gif
-from kittygif.table import GIF, KITTY
+from kittygif.table import GIF, KITTY, UNREFERENCED_PROV, IdTable
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAMPLES = os.path.join(ROOT, "samples")
@@ -244,15 +245,80 @@ def test_the_two_corridors_are_the_SAME_RECIPE_over_two_tables():
 
 
 def test_the_authorable_set_agrees_with_the_measured_census(any_table):
-    """Each dialect against its OWN census -- including the one that has none."""
+    """Each dialect against its OWN census -- and BOTH of them run for real.
+
+    The two derivations are independent: ``authorable`` reads per-id notes,
+    the census counts cells in real levels.  What they must agree about differs
+    by dialect, and the difference is a measured fact rather than a licence:
+
+    * **rwia** -- four shipped level files between them author every authorable
+      id, so the two sets are EQUAL.
+    * **flash** -- there is one map, and one map need not use the whole
+      vocabulary.  So the census is a SUBSET, and the surplus has to be
+      accounted for id by id: it must be exactly the ids the table records no
+      source reference for.  A surplus id with no such row would mean the table
+      calls something authorable that neither the map nor the sources support.
+    """
     from build import Vocab
 
     verdict = Vocab(any_table, GIF).check_against_census()
-    if any_table.raw["censuses"]["gif_id_counts"]:
-        assert "agrees exactly" in verdict
-    else:
-        assert "no census" in verdict
+    census = {gid for counts in any_table.gif_census.values() for gid in counts}
+    authorable = set(Vocab(any_table, GIF).authorable)
+    assert census, "%s: the census arm ran on nothing" % any_table.path
+    assert census <= authorable
+    assert authorable - census == set(any_table.gif_unreferenced_ids)
+    assert ("agrees exactly" in verdict) == (authorable == census)
     Vocab(any_table, KITTY).check_against_census()
+
+
+def test_the_RWIA_census_verdict_is_UNCHANGED_by_the_second_shape(table):
+    """The regression guard on the sentence itself, not on a paraphrase of it.
+
+    Teaching ``check_against_census`` a second census shape is only free if the
+    dialect that had the first one reports exactly what it always did -- so the
+    RWIA verdict is pinned BYTE FOR BYTE rather than by a substring.
+    """
+    from build import Vocab
+
+    assert Vocab(table, GIF).check_against_census() == (
+        "gif: 39 authorable ids, and the census of real level files agrees exactly")
+
+
+def test_a_censused_id_the_table_calls_UNAUTHORABLE_is_caught(tmp_path, flash):
+    """Red-first (i): the census may not name an id no level may author."""
+    from build import Vocab
+
+    def mutate(raw):
+        # mark a censused id ``observed`` -- the engine writes it, so a file
+        # never carries it -- while the census goes on counting it
+        censused = sorted(int(i) for i in
+                          raw["censuses"]["embedded_map_id_counts"]["xplor.PlayState_mapData"])
+        raw["gif"]["ids"][str(censused[-1])]["observed"] = "a mutant's claim"
+
+    mutant = IdTable.load(fixtures.mutant_table(tmp_path, flash, mutate))
+    with pytest.raises(AssertionError, match="names ids the table calls unauthorable"):
+        Vocab(mutant, GIF).check_against_census()
+
+
+def test_an_UNACCOUNTED_surplus_id_is_caught(tmp_path, flash):
+    """Red-first (ii): an authorable id neither censused nor justified.
+
+    The mutant removes one id's "no reference ... in the Flash sources" row and
+    leaves everything else alone, so the id stays authorable and stays out of
+    the census -- the exact shape a table gap would have.
+    """
+    from build import Vocab
+
+    victim = flash.gif_unreferenced_ids[0]
+
+    def mutate(raw):
+        prov = raw["gif"]["ids"][str(victim)]["prov"]
+        prov[:] = [line for line in prov if not UNREFERENCED_PROV.match(line)]
+
+    mutant = IdTable.load(fixtures.mutant_table(tmp_path, flash, mutate))
+    assert mutant.check() == [], "the mutant is still a VALID table"
+    with pytest.raises(AssertionError, match="ids the table does not account for"):
+        Vocab(mutant, GIF).check_against_census()
 
 
 # ------------------------------------------------------------- the raw container

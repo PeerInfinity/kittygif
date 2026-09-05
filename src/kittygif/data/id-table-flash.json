@@ -2,7 +2,7 @@
  "_schema": "rwk-id-table/1",
  "_dialect": "flash",
  "_measured": "2026-09-04 (Flash dialect slice; the .kitty side is the packaged table's, unchanged)",
- "_scope": "The Flash build's authored map bytes ONLY. One unsigned byte per cell, row-major, 188 x 84 (FLASH_PS:41, :17); the game embeds exactly one map (FLASH_MAP) rather than shipping level FILES, so this table has no census and no level-file list. The .kitty end is the same one game as the RWIA table's and its blocks are byte-identical to it -- see censuses._note.",
+ "_scope": "The Flash build's authored map bytes ONLY. One unsigned byte per cell, row-major, 188 x 84 (FLASH_PS:41, :17); the game embeds exactly one map (FLASH_MAP) rather than shipping level FILES, so this table has no level-file list and its census is keyed by the class that carries the map (censuses.embedded_map_id_counts) rather than by file name. The .kitty end is the same one game as the RWIA table's and its blocks are byte-identical to it -- see censuses._note.",
  "_licence": "Derived FACTS with citations. Ships no Hamumu/Raptis bytes: no art, no level data, no source text beyond quoted identifiers and line references.",
  "sources": {
   "FLASH_PS": "~/CC/jpexs/output/robotkitty/scripts/xplor/PlayState.as (Flash RWK level loader)",
@@ -2358,6 +2358,39 @@
  },
  "censuses": {
   "gif_id_counts": {},
+  "embedded_map_id_counts": {
+   "_measured": "2026-09-04 (the kittyengine-flashmap slice), counted over FLASH_MAP's 15792 bytes -- one unsigned byte per cell, 188 x 84 row-major (FLASH_PS:41, :17). Ids and COUNTS only: no geometry, no per-cell listing and no digest of the blob, so no map can be reconstructed from this block.",
+   "xplor.PlayState_mapData": {
+    "0": 4326,
+    "1": 10,
+    "2": 14,
+    "3": 71,
+    "4": 1,
+    "5": 1,
+    "6": 234,
+    "7": 1,
+    "8": 1,
+    "9": 1,
+    "10": 124,
+    "11": 1,
+    "12": 1,
+    "13": 1,
+    "14": 1,
+    "15": 1,
+    "24": 23,
+    "25": 1,
+    "30": 3,
+    "50": 1232,
+    "55": 9,
+    "56": 8,
+    "57": 7,
+    "58": 2684,
+    "63": 7023,
+    "66": 11,
+    "254": 1,
+    "255": 1
+   }
+  },
   "kitty_layout_counts": {
    "DISARMED.kitty": {
     "0": 9324,
@@ -2904,6 +2937,6 @@
     }
    }
   },
-  "_note": "The gif-side census is EMPTY on purpose, and empty is a fact here rather than a gap. The RWIA table's censuses.gif_id_counts is keyed by level FILE name, because that game loads a level out of a set of shipped .gif files and a custom level is an overwrite of one of them. The Flash build has no such set: it embeds exactly ONE map inside the SWF (FLASH_MAP), so there are no file names to key on and no per-file counts to publish. Which ids that one map authors was measured elsewhere and stays there -- it is content, and this repository ships none. Consequently IdTable.gif_level_files is [] for this dialect, and 'authorable' here is derived from the SOURCE (an id the loader or the runtime writes carries an 'observed' note with its line) rather than cross-checked against a count. The .kitty-side censuses are the packaged table's, unchanged, because the .kitty side is the same one game."
+  "_note": "The gif-side census EXISTS for this dialect, in a different SHAPE, and the shape is a difference between the two games rather than a gap. The RWIA table's censuses.gif_id_counts is keyed by level FILE name, because that game loads a level out of a set of shipped .gif files and a custom level is an overwrite of one of them -- so its keys are also the overwrite-slot list IdTable.gif_level_files derives. The Flash build ships no such set: it embeds exactly ONE map inside the SWF (FLASH_MAP), so there are no file names to key on and no overwrite slots to derive. Its census is keyed by the SWF CLASS that carries the map, under censuses.embedded_map_id_counts, and gif_id_counts stays {} -- which is why IdTable.gif_level_files is [] here BY CONSTRUCTION rather than by omission. The census publishes ids and counts, the same courtesy the packaged table extends to classic.gif, and nothing else: no geometry, no per-cell listing, no digest. Its ids are a SUBSET of the ones this table calls authorable; the ids it does not author are exactly those whose prov records no reference anywhere in the Flash sources, and samples/build.py's Vocab.check_against_census asserts that correspondence rather than restating it. The .kitty-side censuses are the packaged table's, unchanged, because the .kitty side is the same one game."
  }
 }

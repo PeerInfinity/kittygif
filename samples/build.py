@@ -38,9 +38,11 @@ class Vocab:
         dangerous rather than lossy (the Flash lethal range).  An id a converter
         will not accept is not one a sample may author.
 
-    Every other id is fair game.  Where the table has a census of real level
-    files, :meth:`check_against_census` cross-checks the derivation against it;
-    a dialect whose game ships one embedded map has no such census and says so.
+    Every other id is fair game, and :meth:`check_against_census` cross-checks
+    the derivation against the table's census of real levels -- whichever shape
+    that dialect's game admits, a set of level files or one embedded map.  The
+    two derivations are independent: this one reads per-id notes, that one counts
+    cells.
     """
 
     def __init__(self, table: IdTable, space: str) -> None:
@@ -99,14 +101,24 @@ class Vocab:
 
     # ------------------------------------------------------------- the check
     def census_union(self) -> Optional[List[int]]:
-        """The ids the table OBSERVED in real level files, or None if it counted none."""
-        key = "gif_id_counts" if self.space == GIF else "kitty_layout_counts"
-        counts = self.table.raw.get("censuses", {}).get(key)
+        """The ids the table OBSERVED in real levels, or None if it counted none.
+
+        ⚑ The gif side asks the TABLE which block it counts in rather than naming
+        one: a game that ships level files keys its census by file name, a game
+        that embeds one map keys it by the class carrying the map, and "which ids
+        do real levels author" is the same question over either shape.
+        """
+        if self.space == GIF:
+            counts = self.table.gif_census
+        else:
+            counts = {k: v for k, v in
+                      (self.table.raw.get("censuses", {}).get("kitty_layout_counts") or {}).items()
+                      if not k.startswith("_")}
         if not counts:
             return None
         seen: set = set()
-        for per_file in counts.values():
-            seen |= {int(i) for i in per_file}
+        for per_source in counts.values():
+            seen |= {int(i) for i in per_source}
         return sorted(seen)
 
     def check_against_census(self) -> str:
@@ -122,13 +134,25 @@ class Vocab:
             return "%s: no census in the table" % self.space
         authorable, census_set = set(self.authorable), set(census)
         if self.space == GIF:
-            if authorable != census_set:
+            if not census_set <= authorable:
                 raise AssertionError(
-                    "the gif space's authorable set and its census disagree: "
-                    "authorable-only %s, census-only %s"
-                    % (sorted(authorable - census_set), sorted(census_set - authorable))
+                    "the gif census names ids the table calls unauthorable: %s"
+                    % sorted(census_set - authorable)
                 )
-            return "gif: %d authorable ids, and the census of real level files agrees exactly" % len(census)
+            surplus = authorable - census_set
+            unreferenced = set(self.table.gif_unreferenced_ids)
+            if surplus != unreferenced:
+                raise AssertionError(
+                    "the gif space's authorable set and its census disagree by ids the "
+                    "table does not account for: authorable-but-uncensused %s, of which "
+                    "the table records no source reference for %s"
+                    % (sorted(surplus), sorted(surplus & unreferenced))
+                )
+            if not surplus:
+                return "gif: %d authorable ids, and the census of real level files agrees exactly" % len(census)
+            return ("gif: %d authorable ids; the censused levels author %d of them, and the %d "
+                    "they do not are exactly the ids this table records no source reference for"
+                    % (len(authorable), len(census_set), len(surplus)))
         if not census_set <= authorable:
             raise AssertionError(
                 "the .kitty census names ids the table calls unauthorable: %s"

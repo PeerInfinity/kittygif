@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
@@ -48,6 +49,30 @@ BOTH = "both"
 #: Class tags, most-faithful first.  A source id carried by several rows resolves
 #: to the row with the best class (see ``_pick``); ties are a table defect.
 CLASS_ORDER = ("a", "b", "c")
+
+#: The census blocks that count GIF-SIDE ids, in the order they are looked for.
+#:
+#: A census counts the ids that real levels of this dialect actually author, and
+#: HOW that set is keyed is a fact about the game, not about the table:
+#:
+#: ``gif_id_counts``
+#:     keyed by level FILE name -- the game ships a set of level files and a
+#:     custom level is an overwrite of one of them, so the keys double as the
+#:     overwrite-slot list (see :attr:`IdTable.gif_level_files`).
+#: ``embedded_map_id_counts``
+#:     keyed by the CLASS that carries the map -- the game embeds exactly one
+#:     map inside its own binary, so there is no file name to key on and no
+#:     overwrite slot to derive.
+#:
+#: A dialect uses ONE of them; ``tests/test_table.py`` holds every packaged
+#: table to exactly one so neither arm can pass on two empty blocks.
+GIF_CENSUS_BLOCKS = ("gif_id_counts", "embedded_map_id_counts")
+
+#: The provenance line a table writes on an id its game's own sources never
+#: mention.  It names the id it sits on, which is what lets the derivation below
+#: be checked rather than trusted: a line that has drifted onto another row says
+#: so instead of quietly widening the set.
+UNREFERENCED_PROV = re.compile(r"^no reference to id (\d+) anywhere in the .+ sources$")
 
 
 class TableError(ValueError):
@@ -319,8 +344,74 @@ class IdTable:
         exactly the files the game ships -- which is also the list of names a
         replacement level may be given, since the game loads a custom level only
         as an overwrite of one of them.  Derived, never typed out.
+
+        ⚑ This reads ``gif_id_counts`` and ONLY that block, because the list it
+        returns means "names a replacement level may be given".  A dialect whose
+        game embeds one map inside its binary still has a census -- keyed by the
+        class that carries the map, under ``embedded_map_id_counts`` (see
+        :data:`GIF_CENSUS_BLOCKS` and :attr:`gif_census`) -- but it ships no
+        level files, so this list is ``[]`` for it by construction.  Reading the
+        embedded block here would make the list claim an overwrite slot that
+        does not exist.
         """
-        return sorted(self.raw["censuses"]["gif_id_counts"])
+        return _census_sources(self.raw["censuses"].get("gif_id_counts"))
+
+    @property
+    def gif_census_block(self) -> Optional[str]:
+        """Which of :data:`GIF_CENSUS_BLOCKS` this dialect counts in, or None."""
+        for block in GIF_CENSUS_BLOCKS:
+            if _census_sources(self.raw["censuses"].get(block)):
+                return block
+        return None
+
+    @property
+    def gif_census(self) -> Dict[str, Dict[int, int]]:
+        """Per-source gif id counts, whichever block this dialect keeps them in.
+
+        ``{source name: {gif id: cell count}}`` -- the source name being a level
+        file for one dialect and the map-bearing class for the other.  Callers
+        that only want "which ids do real levels author" do not have to know
+        which; callers that mean "which files may I overwrite" want
+        :attr:`gif_level_files` instead, and the two are not the same question.
+        """
+        block = self.gif_census_block
+        if block is None:
+            return {}
+        return {
+            source: {int(gid): int(n) for gid, n in counts.items()}
+            for source, counts in self.raw["censuses"][block].items()
+            if not source.startswith("_")
+        }
+
+    @property
+    def gif_unreferenced_ids(self) -> List[int]:
+        """Gif ids this table records as UNREFERENCED by the game's own sources.
+
+        Not the same distinction as ``observed`` (an id the engine WRITES but a
+        level file never carries): these are ids the sources never mention at
+        all, so they are authorable -- a level may legally contain one -- and yet
+        no real level does.  That is exactly the gap a census of real levels is
+        allowed to have, and :meth:`samples.build.Vocab.check_against_census`
+        requires the gap to BE this set rather than merely overlap it.
+
+        Derived from the table's own provenance, never typed out, and each line
+        must name the id it sits on (:data:`UNREFERENCED_PROV`).
+        """
+        out = []
+        for gid, meta in self.gif_ids.items():
+            for line in meta.get("prov", ()):
+                match = UNREFERENCED_PROV.match(line)
+                if not match:
+                    continue
+                if int(match.group(1)) != gid:
+                    raise TableError(
+                        "gif id %d carries the unreferenced-provenance line of id %s "
+                        "(%r); the derivation cannot tell which row it belongs to"
+                        % (gid, match.group(1), line)
+                    )
+                out.append(gid)
+                break
+        return sorted(out)
 
     @property
     def settings(self) -> dict:
@@ -406,6 +497,16 @@ def dialect_file(dialect: Optional[str]) -> str:
             "unknown dialect %r; this package ships %s"
             % (dialect, ", ".join(sorted(DIALECTS)))
         )
+
+
+def _census_sources(block: Optional[dict]) -> List[str]:
+    """The SOURCE names in a census block, in order, minus its ``_``-prefixed keys.
+
+    A census block carries its own provenance beside its counts (``_measured``),
+    the way ``kitty_file.read_layouts`` carries ``_`` keys beside its versions.
+    Filtering them here is what keeps a note from being read back as a level.
+    """
+    return sorted(k for k in (block or {}) if not k.startswith("_"))
 
 
 def _as_ids(value: Union[int, Sequence[int]]) -> Tuple[int, ...]:
