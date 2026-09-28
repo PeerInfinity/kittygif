@@ -1,85 +1,84 @@
 # kittygif
 
-A level converter between two tile-map formats: an indexed-GIF dialect in which
-one pixel is one tile, and the `.kitty` v1 level container (a chunked binary
-save-game format with a packed 32-bit cell bitfield).
+**kittygif converts levels between two tile-based platform games that share a
+level format ancestry: *Robot Wants Kitty* (whose levels are `.kitty` files) and
+*Robot Wants It All* (whose levels are GIF images, one pixel per tile).** It is a
+Python package with a command-line tool, and it also runs in your browser.
 
-```
-.gif  ->\
-          neutral grid model  <->  .kitty
-.bin  ->/
-```
+It converts levels; it does not edit them. Its job is to let a level made for one
+of these games be opened, inspected and played in the other. Each of the
+[kittyengine](https://github.com/PeerInfinity/kittyengine) engine's four demo
+levels was made with kittygif.
 
-Two things vary independently, and keeping them apart is most of the design. The
-**container** is how cells come off disk — an indexed gif's palette indices, or
-one raw byte per cell. The **dialect** is which id table says what those cells
-mean; two games share this id space and disagree about part of it, so the table
-is chosen with `--dialect`, not guessed from the file.
-
-Both directions are **partial**, so unmappable content is never a refusal: the
-converter always emits, and always reports what it could not carry across.
-
-⛔ One thing *is* refused, and it is a fact of the data rather than a policy of
-the code. A table may mark an id `refuse`, meaning translating it is *dangerous*
-rather than merely lossy. The Flash dialect marks ids 16–23 that way: they kill
-the player on contact in that game, and the RWIA dialect reads the same eight as
-bonus collectibles. A level offered to the wrong dialect stops, by name, with the
-source line that says so — rather than becoming a level that quietly kills you.
-
-It is a bridge, not an editor. It exists so a level authored for one of these
-engines can be opened, inspected and played in the other.
-
-**▶ Try it in your browser: [peerinfinity.github.io/kittygif](https://peerinfinity.github.io/kittygif/)** — the
-demo runs this same package under Pyodide, so nothing is uploaded: drop a level
-in, read the report, download the converted file. It takes a `.gif` or a
-`.kitty`; the raw map container is command-line only, because a raw map cannot
-state its own dimensions and the page would have to ask for them.
+**▶ Try it in your browser: [peerinfinity.github.io/kittygif](https://peerinfinity.github.io/kittygif/).**
+The page runs this same package inside the browser (under Pyodide), so nothing
+is uploaded. Drop in a `.gif` or `.kitty` level, read the report and download the
+converted file. Raw `.bin` maps need the command line, because a raw map does
+not record its own width and height.
 
 > **This project's code was written by AI (Claude), directed and reviewed by
 > [PeerInfinity](https://github.com/PeerInfinity).** The file-format facts it
-> encodes were measured — from decompiled bytecode, from C++ sources, and from a
-> disassembly of the shipping reader — and every one of them carries its citation
-> in `src/kittygif/data/id-table.json`. Where a fact could not be measured it is
-> marked as a judgement call. Please read it the way you would read anything else
-> on the internet: the gates below are what it is trusting, and they are all
-> re-runnable.
+> relies on were worked out by reading the games' code: decompiled Flash
+> bytecode, the C++ source and a disassembly of the program that reads the GIF
+> levels. Each fact records where it came from in `src/kittygif/data/id-table.json`,
+> and facts that could not be checked are marked as judgement calls. The checks
+> described under [Tests](#tests) can all be re-run.
+
+## Words used here
+
+| word | meaning |
+|------|---------|
+| **RWK** | *Robot Wants Kitty*, by Raptisoft. Its levels are `.kitty` files. |
+| **RWIA** | *Robot Wants It All*, a compilation by Hamumu Software. Its levels are GIF images. |
+| **Flash version** | the original Flash build of *Robot Wants Kitty*. It has a single map, stored as raw bytes inside the game file. |
+| **tile id** | the number stored in one cell of a level, saying what is there (air, rock, a door, an enemy). |
+| **id table** | a JSON file listing every tile id on both sides and how each one converts. |
+| **dialect** | which id table is used to read the GIF or raw side: `rwia` (the default) or `flash`. The two games use mostly the same numbers, but not all of them mean the same thing. |
+| **container** | how the cells are stored on disk: a GIF image, raw bytes (`.bin`), or a `.kitty` file. The container and the dialect are chosen separately. |
+| **tape** | a recording of which buttons were held on each tick of a run. Replaying a tape replays the run. |
 
 ## Install
 
-```
-pip install -e .
-```
-
-Python 3.9+, Pillow.
-
-## Use
-
-```
-kittygif gif2kitty LEVEL.gif OUT.kitty [--name NAME] [--paint-style panels] [--no-paint]
-kittygif raw2kitty MAP.bin OUT.kitty --width W --height H [--dialect flash]
-kittygif kitty2gif LEVEL.kitty OUT.gif
-kittygif info FILE... [--width W --height H]
-kittygif emit-json LEVEL.{gif,bin,kitty} OUT_PREFIX [--name NAME]
-
-  --dialect NAME       which id table interprets the cells: rwia (default) or
-                       flash. The subcommand picks the CONTAINER; this picks
-                       the MEANING.
-  --report PATH        write the machine-readable JSON report ('-' for stdout)
-  --quiet              suppress the human summary on stderr
-  --id-table PATH      convert by another copy of the id table (outranks
-                       --dialect; the seam the mutant gates run through)
-  --viewer-traits PATH use another copy of the viewer trait table
-  --emit-json PREFIX   (on a *2kitty / kitty2gif) also write the viewer pair for
-                       the level the conversion PRODUCED
+```bash
+pip install -e .              # the tool and the library
+pip install -e ".[test]"      # also pytest, to run the tests
 ```
 
-⚠ `--width`/`--height` are **required** for a raw map, and they are a claim about
-the file rather than a setting: the file carries no dimensions, so the reader
-multiplies them out and refuses anything that is not exactly that many bytes. A
-wrong pair is otherwise silent — the same cells sheared one column per row, still
-loading, still converting, still passing every shape check downstream.
+It needs Python 3.9 or newer, and Pillow.
 
-As a library:
+## Converting levels
+
+```bash
+kittygif gif2kitty LEVEL.gif OUT.kitty                              # RWIA gif -> .kitty
+kittygif raw2kitty MAP.bin OUT.kitty --width W --height H --dialect flash
+kittygif kitty2gif LEVEL.kitty OUT.gif                              # .kitty -> RWIA gif
+kittygif info FILE...                                               # list what a level contains
+kittygif emit-json LEVEL.gif OUT_PREFIX                             # tile-map files for a viewer
+```
+
+Each conversion prints a summary to stderr of anything it could not carry
+across. The main options:
+
+| option | what it does |
+|--------|--------------|
+| `--dialect rwia\|flash` | which id table reads the GIF or raw cells (default `rwia`) |
+| `--report PATH` | also write the conversion report as JSON (`-` for stdout). Only the three conversions write one. |
+| `--quiet` | don't print the summary |
+| `--name NAME` | the level name stored in the `.kitty` (default: the output file's name in capitals) |
+| `--paint-style STYLE`, `--no-paint` | how the solid terrain is painted in the `.kitty`; a GIF has no paint, so a default style is used |
+| `--emit-json PREFIX` | on a conversion, also write the viewer files for the converted level |
+| `--id-table PATH` | use a different copy of the id table (overrides `--dialect`; so does the `KITTYGIF_ID_TABLE` environment variable) |
+| `--palette PATH`, `--viewer-traits PATH` | use different copies of the other two data files |
+
+`kittygif --help` and `kittygif COMMAND --help` list everything.
+
+A raw `.bin` map needs `--width` and `--height`, on `raw2kitty` and also on
+`info` and `emit-json`. The file does not record them. kittygif checks that
+width × height equals the file's size and stops if it does not. A wrong pair of
+numbers that happened to multiply to the right size would still produce a
+broken level: every row would be shifted a little further than the one above.
+
+### From Python
 
 ```python
 from kittygif import IdTable, gif_to_kitty, kitty_to_gif
@@ -90,32 +89,61 @@ level = gifio.read("mylevel.gif")            # or rawio.read("map.bin", 188, 84)
 converted, report = gif_to_kitty(level, table, name="MYLEVEL")
 kittyio.write(converted, "MYLEVEL.kitty", table)
 
-print(report.to_text())          # human summary
-report.to_json()                 # per-kind counts + coordinates
-report.solvability_at_risk       # True if something unrepresentable was substituted
+print(report.to_text())          # the human-readable summary
+report.to_json()                 # counts per tile type, with coordinates
+report.solvability_at_risk       # True if a game mechanic had to be replaced
 ```
+
+## What the report tells you
+
+The two games do not have exactly the same features, so a conversion cannot
+always keep everything. kittygif always writes the converted level, and the
+report sorts every cell into one of three groups:
+
+| group | meaning | example |
+|-------|---------|---------|
+| **mapped** | the same thing exists in both games | rock, air, a keycard door |
+| **degraded** | only the look changes; the level plays the same | a decoration, a paint style, a bonus pickup |
+| **substituted** | a mechanic the other game does not have; replaced with the nearest safe tile | water that changes how the robot moves, conveyors, bosses |
+
+Degraded and substituted cells are listed by type, with counts and coordinates.
+If anything was substituted, `solvability_at_risk` is true and the summary says
+so, because the level might no longer be completable.
+
+Going from GIF to `.kitty`, only a couple of things get substituted: water, and
+one enemy type that RWK does not have. Going the other way, 45 kinds of `.kitty`
+tile have no GIF equivalent, among them conveyors, one-way walls, bosses,
+teleporters and health items.
+
+### The one thing kittygif refuses
+
+In the Flash version, tile ids 16 to 23 are acid: touching one kills the robot.
+In RWIA the same eight ids are bonus collectibles. A level read with the wrong
+dialect would turn a bonus into a death trap, so the `flash` id table marks all
+eight as refused. If a level contains one, kittygif stops, names the id and
+quotes the line of game code that makes it lethal. The same file may convert
+cleanly with `--dialect rwia`.
 
 ## The samples
 
-`samples/` holds five levels, in their formats, with the viewer's JSON pair and
-an input tape that solves each one. All five are **generated**, by
-`samples/generate.py` — which is also the best worked example of the library
-there is, and the reason the samples track the id table instead of drifting from
-it: not one tile id is written down in that script. Every id is selected from
-the table by the table's own `kind` vocabulary.
+`samples/` holds five levels, each with its converted form, preview image,
+report, viewer files, and a tape that completes it. None of them is taken from
+either game. `samples/generate.py` builds all of them from the id table, choosing
+each tile by its type rather than by a hard-coded number, so the samples follow
+any correction made to the table.
 
-```
-python3 samples/generate.py            # rewrite samples/<name>/
-python3 samples/generate.py --check    # regenerate elsewhere and diff
+```bash
+python3 samples/generate.py            # rebuild samples/
+python3 samples/generate.py --check    # build elsewhere and check the committed files match
 ```
 
-| sample | dialect | grid | authored in | ids used | has class-(c) content | wins at tick |
-|---|---|---|---|---|---|---|
-| `minimal` | rwia | 12 x 6 | gif | 4 | no | 78 |
-| `steps` | rwia | 47 x 12 | gif | 8 | no | 416 |
-| `corridor` | rwia | 101 x 12 | gif | 39 | yes | 1034 |
-| `corridor-rwk` | rwia | 231 x 12 | .kitty | 74 | yes | 2422 |
-| `flash-corridor` | flash | 80 x 12 | gif + raw | 32 | **no** | 810 |
+| sample | dialect | size | made as | tile ids used | anything substituted? | completed at tick |
+|--------|---------|------|---------|---------------|-----------------------|-------------------|
+| `minimal` | rwia | 12×6 | gif | 4 | no | 78 |
+| `steps` | rwia | 47×12 | gif | 8 | no | 416 |
+| `corridor` | rwia | 101×12 | gif | 39 | yes, 4 cells | 1034 |
+| `corridor-rwk` | rwia | 231×12 | `.kitty` | 74 | yes, 65 cells | 2422 |
+| `flash-corridor` | flash | 80×12 | gif and raw `.bin` | 32 | no | 810 |
 
 ![corridor](samples/corridor/corridor.preview.png)
 
@@ -123,419 +151,285 @@ python3 samples/generate.py --check    # regenerate elsewhere and diff
 
 ![flash-corridor](samples/flash-corridor/flash-corridor.preview.png)
 
-Those are the three showcases at five pixels per tile, in the colours the viewer
-config derives — a flat map of the level, not a screenshot. The walking lane runs
-across the middle: the powerup row on the left, the sealed cellar pockets below
-it, the gates (pink) and the enemy pockets in the loft on the right. The second
-picture has no player marker because a `.kitty` carries its spawns as *file
-fields* rather than cells, which is one of the two formats' honest asymmetries.
+These previews are flat maps of the three larger samples, five pixels per tile,
+not screenshots. The robot walks along the middle row. Enemies and machinery sit
+in sealed pockets beside that path, so each level shows every tile type while
+still being a simple walk to the kitty. The `corridor-rwk` picture has no player
+marker, because a `.kitty` file stores the start positions as separate values
+rather than as cells.
 
-The three are showcases, one per side of the table and one per dialect:
+- **`corridor`** uses every tile a RWIA GIF level can contain. Converting it to
+  `.kitty` degrades 77 cells and substitutes 4 (the water, and the enemy RWK
+  does not have).
+- **`corridor-rwk`** uses every tile a `.kitty` level can contain, most of which
+  a GIF cannot express. Converting it to a GIF substitutes 65 cells, all named
+  and located in `corridor-rwk.report.json`.
+- **`flash-corridor`** is the same layout as `corridor`, built with the Flash id
+  table instead. Nothing in it has to be substituted: every tile the Flash game
+  understands has a `.kitty` equivalent. It comes as both a `.gif` and a raw
+  `.bin`, and converting either one gives the same `.kitty`, byte for byte.
 
-* **`corridor`** carries **every id the RWIA gif dialect can author** — all ten
-  powerups and the six collectibles in a row you walk down, one of each of the
-  five enemies in sealed pockets behind the three keycard gates, the checkpoint,
-  the secret passage, the breakable brick, the decorations, an acid pool and a
-  water column walled off under the floor, and all three bulk materials in the
-  floor. Converting it to `.kitty` degrades 77 cells and substitutes 4 — the
-  water and the one enemy the other engine never had.
-* **`corridor-rwk`** carries **every layout id the `.kitty` side can author**,
-  most of which the gif dialect has no way to express: conveyors, one-way walls,
-  telematics, velcro, spikes, coins, bosses, hearts, a gold gate. Converting it
-  the other way is the emit-with-report demonstration: 65 substituted cells,
-  named and located in `corridor-rwk.report.json`.
-* **`flash-corridor`** carries **every id the Flash dialect can author**, and it
-  is the *same recipe as `corridor`* run over the other table. That is the
-  clearest statement of what a dialect is that this repository can make: the
-  level design does not change — powerups in a row, hazards in the cellar,
-  enemies in loft pockets behind their gates — and the vocabulary does. It comes
-  out 80 x 12 with 32 ids where `corridor` is 101 x 12 with 39, and the two
-  overlap heavily, because it is one id space seen twice. It is also the only
-  sample with **no class-(c) content at all**: 901 cells map, 59 degrade, none
-  is unrepresentable, because every byte the Flash game reads is special, decor
-  or solid and the `.kitty` side has all three.
+**Each sample is known to be completable.** Its tape was replayed in the
+kittyengine engine, and the engine reported a win with no death. That check
+needs the engine, so it cannot run on GitHub. The results it recorded are
+committed in `samples/oracle-expected.json` (win tick and a checksum of the run),
+and the tests check that every sample has one. On an older engine build, a
+long tape occasionally won a tick or two early when the machine was busy. The
+results were recorded again after the engine's fix and did not change.
 
-  It ships in **both containers** — the `.gif` the gallery shows, and the
-  `.bin` its game actually reads. `raw2kitty` on the `.bin` and `gif2kitty` on
-  the `.gif` produce the committed `.kitty` byte for byte, which is the
-  container/dialect split demonstrated on a file you can check.
+## Viewer files (`emit-json`)
 
-**Completability is proven, not asserted.** Each sample ships
-`<name>.tape.csv`, the button presses that solve it, and
-`scripts/local/completability_gate.py` replays that tape in a real build of the
-engine and requires the engine's own **win flag** — reached from exactly one
-place in the game, when the robot comes within 35 px of the kitty — with no
-death on the way. That gate needs the game and cannot run in CI, so its verdict
-travels in `samples/oracle-expected.json`, and the test suite checks that every
-sample carries one.
+`emit-json` writes two JSON files describing a level as a tile map:
 
-`samples/oracle-expected.json` also carries a measured caveat, in
-`scripts/local/completability_gate.py`'s own docstring: over eight consecutive
-runs on one machine, six reproduced every recorded digest and two came back with
-one long sample's win a tick or two early. No run ever recorded a death or a
-failure to win, so the win verdict is solid and a lone digest miss on a long
-tape is worth re-running before believing.
+- `<PREFIX>_tilemap.json`: `{tiles, map_width, map_height}`, one list per row;
+- `<PREFIX>_tiles.json`: `{categories, tile_ids, default_category}`, a colour and
+  category for each tile id.
 
-The showcases keep the enemies and the machinery in **sealed pockets** beside
-the walking lane rather than on it. That is a deliberate design choice, not an
-accident of generation: a showcase's job is to display the whole vocabulary, and
-its intended solution should still be a walk anyone can follow.
+This is the format read by the tile-map viewer in
+[Archipelago-CC](https://github.com/PeerInfinity/Archipelago-CC). Keep the two
+suffixes: that project ignores generated viewer files by those names, so they
+are not committed by accident. (`--tilemap` and `--config` can override each
+path.)
 
-## `emit-json` — a level as a viewable tile map
+Categories and colours are worked out from the id table, so the GIF and `.kitty`
+versions of a level use the same colours. The few properties the table cannot
+provide, such as whether a tile is deadly, come from
+`src/kittygif/data/viewer-traits.json`. A `.kitty` tile whose only GIF
+equivalent is a substitute gets a colour of its own, so it does not disappear
+from the picture as air.
 
-`emit-json` writes the two files a tile-map viewer wants, in the level's own id
-space: `<PREFIX>_tilemap.json` (`{tiles, map_width, map_height}`, one list per
-row) and `<PREFIX>_tiles.json` (`{categories, tile_ids, default_category}`).
-The shape is [Archipelago-CC](https://github.com/PeerInfinity/Archipelago-CC)'s
-`tileMapAnalyzer` contract, and **the two suffixes are part of it**: that project
-gitignores its viewer data by exactly those globs, so a prefix keeps a generated
-map out of a tracked tree by construction.
+## The file formats
 
-Nothing in the category config is written by hand. A category is the id's
-measured `kind` (split by `solid` when a kind is not uniform on it, so the floor
-derivation cannot lose the flag); a colour is the canonical RGB of the gif id the
-table pairs it with — which is what lets a `.gif` grid and a `.kitty` grid be
-read side by side in one palette. Only the handful of flags no measurement gives
-(`lethal`, `blocks_floor`, `is_region`, `is_location`, `is_player_start`) come
-from `data/viewer-traits.json`, keyed on that same `kind` vocabulary: nineteen
-rows standing in for a hundred and thirty ids.
+Neither format has published documentation. What follows was worked out from
+the games' code, and each detail is cited in `src/kittygif/data/id-table.json`.
 
-⛔ One derivation rule is worth stating because getting it wrong is invisible: a
-layout id whose only gif target is a class-(c) **substitute** does NOT borrow
-that substitute's colour. The substitute is chosen for SAFETY, and a solid
-conveyor painted in air's colour would vanish from the picture the viewer exists
-to draw. Those categories take a name-derived colour instead and stay visible.
+### RWIA level GIFs
 
-## The report
+- A level is a single-frame GIF with a palette. The image is as wide and tall as
+  the level, and each pixel is one tile.
+- **The tile id is the pixel's palette index, not its colour.** The palette is
+  only there so a person can see what they are drawing. In the game's own files,
+  two ids sometimes share the same colour, so only the index can tell them apart.
+  kittygif writes a distinct colour per id anyway.
+- Two ids mark positions rather than tiles: where the robot starts and where the
+  kitty is. A tile is 40 game pixels, so the position is the cell × 40.
+- Some ids never appear in a level file, because the game creates them while
+  loading (decorations, backgrounds) or while playing (a checkpoint that has been
+  touched). The id table marks these.
+- A keycard door in a GIF is a vertical line of one id, of any height. A `.kitty`
+  door is exactly two tiles, a top and a bottom. kittygif splits a longer line
+  into pairs from the bottom up; an odd tile left at the top becomes a
+  single top half, which still opens. The report mentions any door that was not
+  exactly two tall.
 
-Every converted cell falls into one of three classes, taken from the id table's
-own tags:
+### Raw Flash maps (`.bin`)
 
-| class | meaning | in the report |
-|---|---|---|
-| **a** | mappable — a table entry both formats agree on | counted |
-| **b** | degraded — cosmetic only (a paint style, a decoration, a bonus pickup); solvability unchanged | listed with counts and coordinates |
-| **c** | unrepresentable — a mechanic the other format has no way to express; emitted as the nearest safe tile | listed **prominently**, and `solvability_at_risk` goes true |
+The Flash version keeps its one map inside the game file as plain bytes: one
+byte per tile, row by row, with nothing else. There is no header, so the width
+and height must be given on the command line (the game's own map is 188×84).
 
-Both directions have class-(c) content. Going one way, a handful of mechanics
-the other engine never had (water that changes the player's vertical motion, one
-enemy type) become air. Going the other way, some forty mechanics — conveyors,
-one-way walls, bosses, teleports, HP items — have no target id at all. The
-report names each one, how many there were, and exactly where.
+kittygif can read raw maps but cannot write them. A writer would have to decide,
+cell by cell, whether an id in the 16–23 range is acid the game generates itself
+or a tile that kills on contact, for a level whose author never thought about
+acid. Until that question is answered from the game's code, there is no writer,
+and a test makes sure one is not added by accident. Converting to a GIF with
+`kitty2gif --dialect flash` does work.
 
-## The formats
+### `.kitty` files
 
-Everything below is measured, and every claim in it is cited per-id or per-field
-in `src/kittygif/data/id-table.json`. Neither format has published
-documentation; this is what reading the two engines produced.
+kittygif reads two versions and writes version 1:
 
-### The level gif
+- **version 1**, used by the game's own campaign levels;
+- **version 16**, what the web level editor at
+  [robotwantskitty.com/web](https://www.robotwantskitty.com/web/) saves. Levels
+  made there can be converted directly.
 
-**One pixel is one tile, and the tile is the palette INDEX.** A level is a
-single-frame indexed (mode `P`) GIF whose width and height are the grid's, and
-whose pixel at `(col, row)` is the tile id at that cell. The palette is an
-authoring **legend** — arbitrary distinct colours so a human can see what they
-are drawing — and not the tile's appearance in game: bulk rock is white and air
-is black in the file.
-
-That the reader keys on the index rather than the colour is the evidence's
-reading, not an assumption we like: two of the measured level gifs share a
-palette in which the water id and the air id have the **same RGB**, yet one of
-them places water in deliberate columns. Distinguishing those two cells is only
-possible by index. (Our writer emits the canonical measured RGB per id anyway,
-which is correct under either reading.)
-
-Two ids are not tiles but **positions**: one pixel marks where the player
-starts and one marks the goal. The world coordinate is `cell * 40` with no
-half-tile offset — measured in the disassembly of the program that reads these
-files, and confirmed end to end by the engine's own load.
-
-Some ids are never authored: the engine generates them at load (decoration
-quadrants, parallax backgrounds) or uses them as runtime state (an activated
-checkpoint). The table marks them, and a census of real levels is held against
-that marking — two independent derivations of "what a level file may contain",
-which is what `samples/generate.py` builds `corridor` from. For the RWIA dialect
-the two agree exactly; for the Flash one the census is a single map, so it is a
-subset, and the ids it does not use must be exactly the ones the table records
-no source reference for. Neither dialect is allowed a gap nobody accounts for.
-
-Gates are the one shape the flat table cannot express. A gif gate is a vertical
-run of one id, **any height**; the other format's door is exactly a top/bottom
-couple, and opening one half removes only its own partner. Runs are therefore
-tiled into couples from the **bottom up**, and an odd cell at the top becomes a
-lone top half — which opens on its own, so no cell is ever left permanently
-shut. A run that was not two tall is named in the report.
-
-### The raw map bytes
-
-**One unsigned byte per cell, row-major, and nothing else.** The Flash build of
-this game does not ship level files at all: it embeds one map as a
-`DefineBinaryData` blob and reads it with a plain loop —
-`while (i < data.length) map[i] = data.readUnsignedByte()` — then indexes that
-array as `i % mapWidth`, `i / mapWidth`. So the container is the grid: no header,
-no palette, no dimensions, no terminator.
-
-⚠ **The dimensions are not in the file**, and that is the whole hazard. In the
-game they are two constants sitting beside the loader (`mapWidth = 188`,
-`mapHeight = 84`), which is fine for a program that ships with its own map and
-useless for a converter handed one. `rawio.read` therefore takes them from the
-caller, multiplies them out, and refuses a file that is not exactly that many
-bytes, printing both numbers. Nothing downstream could catch a wrong pair: a
-level read one column too narrow is the same cells sheared one step per row, and
-it still loads, still converts, and still passes every shape check.
-
-⛔ **Ids 16–23 are refused in the Flash dialect.** `Player.update` probes the
-tile under the player and calls `Die()` on anything in that range; the loader
-writes 16 and 20 itself, from an authored acid source. The RWIA dialect reads
-the same eight as bonus collectibles — a superstar, five combo letters, a time
-orb, a secret passage. Converting one game's level as the other's would turn a
-bonus into a death trap, so the table marks all eight `refuse` and the converter
-stops with the source line rather than mapping them. The two id spaces are
-otherwise near-identical, which is exactly what makes this worth refusing over.
-
-There is deliberately **no raw writer** — see "What is NOT here".
-
-### The `.kitty` container (v1 and v16)
+Any other version is refused rather than guessed at. All numbers are
+little-endian. A `String` is an `int32` length, counting its terminating zero
+byte, followed by the bytes.
 
 ```
-int32 fileVersion                       # 1 or 16; anything else is refused, not mis-parsed
+int32 fileVersion                       # 1 or 16
 chunk                                   # the level
 int32 nestedSaveGameCount               # 0 in a level file
 
 chunk := int32 payloadLen, payload[payloadLen], int32 childCount, child*
 ```
 
-Two versions are readable. **v1** is the campaign container and the one this
-converter writes. **v16** (`SAVEGAME_VERSION 0x0010`) is what the Maker Mall
-editor at [robotwantskitty.com/web](https://www.robotwantskitty.com/web/) saves —
-so a level authored in the official web editor converts here directly.
-
-The body — grid, robot, kitty, extra game data — is written by one
-version-independent routine, so the two versions differ only in the metadata
-chunk in front of it and in whether an editor-tool chunk follows.
-
-At **v1** the level chunk carries no payload and six children, in order:
+In version 1 the level chunk has no payload of its own and six children, in
+this order:
 
 | # | child | payload |
 |---|---|---|
 | 0 | name | `String` |
-| 1 | grid | `int32 w, int32 h, uint32 cells[w*h]`, **optionally** `byte levelMap[w*h]` |
+| 1 | grid | `int32 w, int32 h, uint32 cells[w*h]`, sometimes followed by `byte levelMap[w*h]` |
 | 2 | robot | `float x, float y` |
 | 3 | kitty | `float x, float y` |
-| 4 | extra game data | 71 bytes of typed fields (or 72 with a trailing bool) |
-| 5 | editor tool chunk | `int32 nextPaintRegionId`, optionally more |
+| 4 | game settings | 71 bytes of fixed fields (72 with an extra flag at the end) |
+| 5 | editor data | `int32 nextPaintRegionId`, sometimes followed by more |
 
-At **v16** there are five children: child 0 is a wider metadata chunk —
-`int32 uploadId, String name, int64 tags, uint32 paintId, bool testedOk, bool
-testedNoDying, char flagBits` — then the same children 1–4, and no editor chunk.
-Its grid chunk always carries the `levelMap` array *and* one sub-chunk (the
-radio-text list: `int32 count`, then that many `Point, String` pairs), neither of
-which a v1 file ever has. Its extra-game-data chunk is a longer field list than
-v1's, so it is not carried into a v1 file — a v16 level written back out as v1
-gets the pinned donor block.
+Of the game's 11 campaign levels, 5 have the extra `levelMap` array (which parts
+of the map the player has uncovered, left over from testing) and 5 have the
+72-byte settings. They are the same 5 levels. kittygif reads either form and
+keeps what it found, so a `.kitty` it reads can be written back unchanged. When
+it writes a new level it uses the shorter forms, with the settings copied from
+the campaign level `FLASHLEVEL` (all 11 campaign levels have identical values
+there).
 
-Which child is which, per version, is a row in the id table
-(`kitty_file.read_layouts`), not a branch in the reader: teaching this tool a
-third container version is a data edit.
+Version 16 differs only around the edges. Its first child is a larger block of
+level information (`int32 uploadId, String name, int64 tags, uint32 paintId,
+bool testedOk, bool testedNoDying, char flagBits`). Its grid always has the
+`levelMap` array plus a list of radio messages (`int32 count`, then that many
+`Point, String` pairs). There is no editor-data child, and the settings block is
+longer. That longer settings block is not carried over; a version 16 level
+written as version 1 gets the `FLASHLEVEL` settings.
 
-Primitives are little-endian; a `String` is an `int32` length **including its
-NUL** followed by the bytes.
-
-A cell is a little-endian `uint32` bitfield:
+Each cell is a little-endian `uint32` split into fields, lowest bits first:
 
 ```
 layout:7 | paint:9 | customDraw:1 | extraData:6 | paintID:9
 ```
 
-`layout` is the tile id. `paint` is a cosmetic surface: `style = paint // 47`
-over ten named styles, `blob = paint % 47` over the standard 47-tile blob
-autotiler. `paintID` groups painted cells into regions and is the flag that says
-a cell is painted at all. `customDraw` and `extraData` are computed at load, so
-a writer emits zero.
+- `layout` is the tile id.
+- `paint` is the surface drawn over solid terrain: `paint // 47` picks one of ten
+  styles, and `paint % 47` picks which of 47 edge-and-corner pieces to draw, based
+  on the neighbouring cells.
+- `paintID` groups painted cells into regions; 0 means unpainted.
+- `customDraw` and `extraData` are worked out by the game when it loads the level,
+  so kittygif writes 0.
 
-⚠ **The v1 grid chunk has two shapes.** Six of the eleven measured levels are
-`8 + w*h*4` bytes; the other five append a `w*h` byte array (the revealed-map
-state left over from editing). Both are file version 1 and both load. The split
-lines up exactly with the extra chunk's 71/72-byte split, which is what makes it
-the shape of the format rather than a coincidence — a second variable
-partitioning the corpus the same way. The reader takes either and preserves what
-it found, so a `.kitty` round-trips byte-exact; the writer emits the shorter of
-each.
+### The id tables
 
-### The id table
+`src/kittygif/data/id-table.json` (the `rwia` dialect) is the whole translation:
+55 GIF ids, 74 `.kitty` tile ids, 99 conversion rows, the paint styles, the file
+layout facts and the settings copied into new levels. Each entry records where
+the fact came from: a line of the Flash source, a line of the C++ source, an
+address in the disassembly, or how often it occurs in the game's real levels.
+It contains facts about the formats, not anyone's code or content.
 
-`src/kittygif/data/id-table.json` is the whole translation: 55 gif ids, 74
-layout ids, 99 pair rows, the paint model, the container facts and a donor
-settings block, each entry carrying its own provenance — a Flash source line, a
-C++ source line, a disassembly address, an observed count in a real file, or a
-note saying which of those it lacks. It is **our derived facts with citations**,
-not anyone's code or content, which is why it can be published.
-
-**There are two of them, and one of them is the same file with a different left
-half.** `id-table-flash.json` is the same `rwk-id-table/1` schema for the Flash
-build of the game. The `.kitty` end is identical — it is one game over there —
-and the gif end differs where the two engines disagree about the same numbers:
+`id-table-flash.json` (the `flash` dialect) has the same layout. Its `.kitty`
+half is identical, since it is the same game on that side. Its GIF half differs
+where the two games disagree:
 
 | | rwia | flash |
 |---|---|---|
-| solid | `50 <= id <= 254` | `id >= 50` (`collideIndex`) |
-| ids 16–23 | superstar, combo letters, time orb, secret passage | acid — **lethal, refused** |
-| id 32 | water, and it changes the robot's motion — class (c) | inert, blank in the tilesheet — class (b) |
-| id 69 | a Shooter enemy — class (c) | inert, but `>= 50`, so a solid block — class (b) |
-| class-(c) forward rows | 2 | **0** |
-| level files | four `.gif`s, with a census keyed by file name | none — one map inside the SWF, censused by the class that carries it |
+| solid tiles | ids 50 to 254 | ids 50 and up |
+| ids 16–23 | bonus collectibles | acid, which kills; **refused** |
+| id 32 | water, which changes how the robot moves; substituted | blank and harmless; degraded |
+| id 69 | a Shooter enemy; substituted | a plain solid block; degraded |
+| real levels counted | four GIF files from the game | the one map inside the Flash game (tile counts only) |
 
-⛔ **The drift gate.** Two tables describing one container is this design's
-standing hazard: a fix applied to one file and not the other is invisible until
-a level comes out wrong. So the blocks that describe the `.kitty` side — the
-layout ids, the chunk layouts, the paint model, the donor settings, the
-substitute rule — are asserted **byte for byte identical** between the two
-files, as serialised JSON so a new key cannot slip through, and the gate is
-shown red on a deliberately drifted copy.
+Both tables also count how often each id appears in the real levels (tile counts
+only, no positions). The tests check each table's list of ids that can appear in
+a level against those counts.
 
-**A census is keyed by what the game ships, and the shape is the fact.** The
-RWIA game loads a level out of a set of `.gif` files, so `censuses.gif_id_counts`
-is keyed by file NAME and those keys double as the overwrite slots
-`IdTable.gif_level_files` derives. The Flash build embeds exactly one map inside
-the SWF, so there is no file name to key on and no overwrite slot to derive: its
-census is keyed by the class that carries the map, under
-`censuses.embedded_map_id_counts`, and `gif_id_counts` stays `{}` — which is why
-its slot list is `[]` *by construction* rather than by omission. The table says
-which and why in `censuses._note`; the tests hold each dialect to its own answer
-by name, and a control requires each to use **exactly one** of the two blocks so
-neither arm can pass on two empty ones.
+**All tile ids live in the data files, not in the code.** The code only knows how
+the files are packed. Every tile id, conversion rule, substitute, colour and
+refusal is in `id-table.json`, `id-table-flash.json` and `palette.json`, so a
+wrong conversion is fixed by correcting one JSON row, and a new dialect is a new
+table plus one line in `table.py`'s `DIALECTS`.
 
-## Everything id-shaped is DATA
+## Tests
 
-The code knows **packing formats only**: the chunk tree, the cell bitfield, the
-palette layout, the blob autotiler's decision tree, and three structural rules
-(a `vpair` target is a vertical door couple; a position row moves a spawn field;
-class tags order `a < b < c`). Every tile id, class tag, substitute, palette
-byte, container fact, refusal and default lives in `id-table.json` and
-`palette.json`. Adding a dialect means adding a table, not editing the
-converter; correcting a mapping means correcting one JSON row. The Flash dialect
-is what that sentence looks like when it is cashed in: a second data file, one
-keyword on `IdTable.load`, and one row in the `DIALECTS` map.
+GitHub Actions runs `pytest` and the no-originals check on every push. Nothing
+needs to be downloaded: every test level is generated from the id table.
 
-That is also what makes the gates testable: `--id-table` points the whole
-converter at another copy, so a mutated table can be driven through the real code
-path without touching the shipped data file.
-
-## Validation
-
-| layer | what it proves | where |
-|---|---|---|
-| **L1** | round-trip byte identity over the mappable subset, through real files | `tests/` (CI-able, synthetic + the samples) |
-| dialects | every shape gate runs over **every** packaged table, and the two agree byte for byte about the `.kitty` side | `tests/test_table.py`, `tests/test_dialect.py` |
-| refusals | a dangerous id stops the conversion by name, and the other dialect still maps it | `tests/test_dialect.py` |
-| containers | the same cells in a `.gif` and in a `.bin` convert to the same bytes | `tests/test_raw2kitty.py` |
-| mutants | each gate actually goes red on a broken table | `tests/test_mutants.py` |
-| samples | the committed samples still regenerate, and each carries a completability verdict | `tests/test_samples.py` |
-| guard | no original level file is in this repository | `tests/test_no_originals.py` |
-| **L2** | the emitted file loads in the engine, at the right size, with the spawn where the source pixel said, and it steps | `scripts/local/` |
-| **completability** | each sample's tape reaches the goal — the engine's own win flag, no death | `scripts/local/` |
-| blob oracle | the autotiler transcription scored against real editor output | `scripts/local/` |
-| **L3** | the emitted file RENDERS in the game build — geometry and appearance, never id semantics | manual, real-GPU browser |
-| **L4** | the emitted `.gif` loaded **in the original game**, and played correctly | manual, done once |
-
-```
-pytest                                                # everything CI-able, no game files needed
-python3 tests/test_no_originals.py [DIR]              # the guard, standalone, on any tree
-python3 scripts/local/l2_oracle_gate.py --mutant      # needs a local engine build
-python3 scripts/local/completability_gate.py          # needs a local engine build
-python3 scripts/local/acceptance.py                   # needs local level files
-python3 scripts/local/check_blob_autotiler.py         # needs local level files
+```bash
+pytest                                     # everything that runs without the game
+python3 tests/test_no_originals.py [DIR]   # the no-originals check on any folder
 ```
 
-**The refusal range is a decision in the data, and it has its own blind spot.**
-Mutant (iii) removes one of the Flash table's refusals and restores the other
-dialect's row for that id. The result still passes `check()`, still round-trips,
-and converts a cell that kills the player into air *without even setting
-`solvability_at_risk`*. What catches it is a direct assertion about the shipped
-data — that the refused set is exactly the range the game's own `Die()` tests —
-not a derivation from elsewhere in the table. Both halves are pinned, so the
-limit stays visible.
+What the tests catch:
 
-**L1 is a self-consistency gate, and it has a known blind spot.** A table whose
-pairs are consistently relabelled is still a bijection, so `gif -> kitty -> gif`
-still closes while the emitted level has had two materials swapped. Only an
-external oracle sees that class of defect; `l2_oracle_gate.py --mutant` is the
-one that does. Both halves are pinned as tests. The same limit applies to L3: a
-render eyeball proves geometry and appearance, never id semantics.
+- **A conversion that does not come back the same.** Levels made only of mapped
+  tiles are converted to the other format and back, and must come back byte for
+  byte.
+- **The two id tables drifting apart.** Their `.kitty` halves must be identical,
+  so a fix made to one and not the other fails.
+- **A lost refusal.** The Flash table must refuse exactly ids 16–23, the range
+  the game's death check uses. This is checked directly, because a table missing
+  one refusal still converts every other way without complaint.
+- **The GIF and raw containers disagreeing.** The same cells from a `.gif` and a
+  `.bin` must give the same `.kitty`.
+- **Stale samples.** The committed samples must match a fresh `generate.py` run,
+  and each must have a recorded completion result.
+- **Original game files.** `tests/test_no_originals.py` holds the MD5 checksums
+  of the 35 original level files this work was checked against, and fails if any
+  of them appears in the repository or in the built demo site.
+- **Checks that cannot fail.** `tests/test_mutants.py` breaks a copy of the id
+  table in specific ways and confirms that the checks above notice.
 
-Each gate here was made to go red before it was believed. The no-originals guard
-was run against a tree with a real level file dropped into it; the completability
-gate was run against a sample with its keycards removed (the robot stops at the
-first gate) and against a tape with its jumps removed (the robot stops at the
-first step).
+One kind of mistake the round-trip test cannot see: if two tile types were
+swapped consistently in the table, a level would still convert and come back
+unchanged, while playing wrongly. Only loading the level in the real engine
+catches that. The scripts in `scripts/local/` do this, and more:
 
-## What is NOT here
+| script | what it checks |
+|--------|----------------|
+| `l2_oracle_gate.py` | a converted level loads in the engine at the right size, with the robot where the source said; `--mutant` shows a swapped table being caught |
+| `completability_gate.py` | each sample's tape wins in the engine with no death, matching `samples/oracle-expected.json` (`--write` records new results) |
+| `acceptance.py` | converts the real game levels and loads each one in the engine |
+| `check_blob_autotiler.py` | compares kittygif's choice of edge-and-corner paint pieces with the ones in the real campaign levels |
 
-No level files, no game assets, no third-party source. The test suite generates
-every fixture it needs from the table, so `pytest` runs on a bare checkout, and
-`tests/test_no_originals.py` walks the tree on every CI run and fails if a file
-ever matches one of the 35 originals this work was measured against (stored as
-hashes only — a hash identifies a file without carrying any of it).
+They need things this repository does not include: a build of
+[kittyengine](https://github.com/PeerInfinity/kittyengine) (its `--oracle` mode
+loads a level and replays a tape without a screen), and, for the last two, the
+real game files. They default to paths on the author's machine; pass
+`--oracle`, `--sandbox`, `--gif`, `--gif-dir`, `--campaign` and `--out` to
+point them elsewhere. They write their output outside this repository.
 
-Converted originals are not here either, and that is a stricter promise than the
-hash guard can enforce: a converted level is a *new* file with a *new* hash, so
-what keeps it out is the rule, `.gitignore`, and working outside the tree. If you
-convert someone's level, the result is still their level.
+Two further checks were done by hand: a converted level was looked at in the
+browser build of the engine, and a converted GIF was loaded and played in the
+original *Robot Wants It All*.
 
-The scripts under `scripts/local/` are the only ones that touch real data; they
-take paths on the command line and write outside this tree.
+## What is not here
 
-**No map data.** The Flash build's map lives inside its SWF, and the map is not
-here: no bytes, no geometry, no per-cell listing, no digest of the blob. What the
-Flash table publishes is the *vocabulary* the game's code reads, each row citing
-the source line that reads it, plus an id **histogram** of that one map under
-`censuses.embedded_map_id_counts` — which ids it authors and how many of each,
-the same courtesy the packaged table already extends to `classic.gif`. A
-histogram is not a map: it fixes no cell to any position, and 15,792 cells with
-those counts can be arranged in more ways than there are atoms. What it buys is
-that the table's claim about what a level may contain can be checked against
-what a real level does contain.
+- **No game files.** No levels, art, sound or source code from either game. The
+  no-originals check enforces this for the original files; converted levels are
+  new files the check cannot recognise, so `.gitignore` excludes conversion
+  output in the repository root and the usual output folders. Work outside the
+  repository when converting real levels. A converted level still belongs to
+  whoever made it.
+- **No Flash map.** The Flash table lists how many times each tile id appears in
+  the game's one map, and nothing else: no positions, no bytes, no checksum.
+- **No raw map writer** (see [Raw Flash maps](#raw-flash-maps-bin)).
 
-**No reverse level converter — no `kitty2raw`.** Reading raw map bytes is safe;
-writing them is not, and the reason is ids 16–23. A writer would have to decide,
-per cell, between an id the loader generates from an authored acid source (16
-and 20) and an id that kills the player on contact — and it would have to make
-that decision for a `.kitty` whose author never thought about acid at all. Until
-that is measured rather than guessed there is no writer, and a test pins the
-absence so it stays a decision instead of an oversight. (Converting a level the
-other way, `kitty2gif --dialect flash`, is fine and reports what it dropped.)
+## The demo site
 
-## Licence and scope
+[peerinfinity.github.io/kittygif](https://peerinfinity.github.io/kittygif/) is
+built and published by `.github/workflows/pages.yml` on every push to `main`. The
+page loads a copy of the package built from the same commit, so it always
+matches the code. To build and serve it locally:
 
-MIT — see `LICENSE`. The tool is ours and ships no one else's bytes.
+```bash
+python3 scripts/build_site.py -o _site
+python3 scripts/check_site.py _site          # every file the page loads is there
+python3 -m http.server -d _site
+```
 
-This project is **compatible with the `.kitty` level format** and with the
-indexed-gif level dialect. It is not affiliated with, endorsed by, or a product
-of the authors of either game, it is not named after either of them, and it
-redistributes nothing of theirs — no art, no audio, no level data, no source
-text beyond quoted identifiers and line references in the citations.
+The workflow also runs the no-originals check over the built site.
 
-### Credits and links
+## Layout
 
-- **Robot Wants Kitty** and its web level editor — the source of the `.kitty`
-  container — are by **Raptisoft**: <https://www.robotwantskitty.com/>
-- **Robot Wants It All**, the compilation whose level files use the gif dialect,
-  is by **Hamumu Software**:
+| path | what it is |
+|------|------------|
+| `src/kittygif/` | the package: `cli.py` (the `kittygif` command), `convert.py`, the readers and writers `gifio.py`, `rawio.py`, `kittyio.py`, and `viewer.py` for `emit-json` |
+| `src/kittygif/data/` | the two id tables, the GIF palette, and the viewer traits |
+| `samples/` | the five sample levels, `generate.py` and `build.py` that make them, and the recorded completion results |
+| `tests/` | the test suite, the no-originals checksums, and one small level saved by the web editor (version 16) |
+| `scripts/` | the demo-site build and check; `scripts/local/` holds the checks that need the engine or real game files |
+| `site/` | the demo page |
+
+## Licence and credits
+
+MIT; see [LICENSE](LICENSE). The tool is original work and includes nothing from
+either game.
+
+This project reads and writes these games' level formats. It is not affiliated
+with or endorsed by their authors.
+
+- **Robot Wants Kitty** and its web level editor are by **Raptisoft**:
+  <https://www.robotwantskitty.com/>
+- **Robot Wants It All**, the compilation whose levels are GIFs, is by
+  **Hamumu Software**:
   <https://store.steampowered.com/app/834760/Robot_Wants_It_All/>
-
-Those names appear here to say which formats this tool reads and writes, and to
-point at the games themselves. Nothing of theirs is redistributed.
-
-### The demo
-
-<https://peerinfinity.github.io/kittygif/> — built and published by `.github/workflows/pages.yml`. Build it locally
-with:
-
-```
-python scripts/build_site.py -o _site && python -m http.server -d _site
-```
-
-The page loads a wheel built from the same commit, so the demo cannot drift
-behind the code beside it. The no-originals guard runs a second time over the
-assembled site, because a site directory is another way a level file could
-reach the public.
