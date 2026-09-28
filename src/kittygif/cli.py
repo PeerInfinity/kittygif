@@ -17,8 +17,12 @@ the file, not a preference: a raw map states no dimensions of its own, so the
 reader multiplies them out and refuses a file that is not exactly that many
 bytes.  ``info`` wants the same two before it will read one.
 
-Every subcommand writes its report: the human summary on stderr, and the
-machine-readable JSON to ``--report PATH`` (or to stdout with ``--report -``).
+The three conversions (``gif2kitty``, ``raw2kitty``, ``kitty2gif``) write a
+report: the human summary on stderr, and the machine-readable JSON to
+``--report PATH`` (or to stdout with ``--report -``).  ``info`` prints its
+census on stdout and ``emit-json`` writes its two files; neither writes a
+report, and both accept ``--report``/``--quiet`` only because those flags are
+shared by every subcommand.
 
 ``emit-json`` writes the two files Archipelago-CC's ``tileMapAnalyzer`` panel
 loads -- ``<PREFIX>_tilemap.json`` and ``<PREFIX>_tiles.json``.  ⛔ THOSE TWO
